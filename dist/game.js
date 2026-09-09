@@ -2,11 +2,11 @@
 const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');
 const $=id=>document.getElementById(id);
 const levels=[
- {name:'はじめの裏切り',length:1900,speed:235,spikes:[620,1250],hiddenSpikes:[1250],holes:[[820,965,755],[1590,1730,1535]],ceil:[],fake:1460},
- {name:'高く跳べばいい、とは限らない',length:2200,speed:245,spikes:[640,1280,1640],hiddenSpikes:[1640],holes:[[860,1005,795],[1870,2010,1815]],ceil:[[570,760,245]],fake:1770},
- {name:'足元をご覧ください',length:2300,speed:255,spikes:[520,1770],hiddenSpikes:[520,1770],holes:[[710,850,645],[1120,1255,1055],[1450,1585,1385],[2010,2150,1955]],ceil:[],fake:1900},
- {name:'ゴールはすぐそこ',length:2500,speed:250,spikes:[580,1160,1710,2280],hiddenSpikes:[1710,2280],holes:[[780,920,715],[1990,2140,1925]],ceil:[[1085,1260,245]],fake:1830},
- {name:'最後まで信用しないで',length:3000,speed:260,spikes:[540,1160,1770,2460,2880],hiddenSpikes:[540,1770,2460,2880],holes:[[740,885,675],[1380,1520,1315],[1980,2120,1915],[2660,2800,2605]],ceil:[[1090,1250,245],[2390,2540,245]],fake:2240}
+ {name:'はじめの裏切り',length:1900,speed:235,spikes:[620,1250],hiddenSpikes:[1250],holes:[[820,965,755],[1590,1730,1535]],ceil:[]},
+ {name:'高く跳べばいい、とは限らない',length:2200,speed:245,spikes:[640,1280,1640],hiddenSpikes:[1640],holes:[[860,1005,795],[1870,2010,1815]],ceil:[[570,760,180]],fake:1770},
+ {name:'足元をご覧ください',length:2300,speed:255,spikes:[520,1770],hiddenSpikes:[520,1770],holes:[[710,850,645],[2010,2150,1955]],baitHoles:[[1120,1210,1290,1430]],spikeModes:{1770:'slide'},ceil:[[430,610,245,'drop']],fake:1900},
+ {name:'ゴールはすぐそこ',length:2500,speed:250,spikes:[580,1160,1710,2280],hiddenSpikes:[1710,2280],holes:[[780,920,715],[1990,2140,1925]],spikeModes:{1710:'swap'},ceil:[[1085,1260,245,'drop'],[1420,1600,180,'tooth']],fake:1830},
+ {name:'最後まで信用しないで',length:3000,speed:260,spikes:[540,1160,1770,2460,2880],hiddenSpikes:[540,1770,2460,2880],holes:[[740,885,675],[1980,2120,1915],[2660,2800,2605]],baitHoles:[[1380,1470,1550,1690]],spikeModes:{1770:'slide',2880:'swap'},ceil:[[1090,1250,245,'drop'],[2210,2340,180,'tooth'],[2390,2540,245,'drop']],fake:2240}
 ];
 let level=0,deaths=0,state='ready',x=100,y=338,vy=0,held=false,grounded=true,elapsed=0,deadTime=0,last=0,acc=0,particles=[];
 let viewWidth=1000, viewHeight=480;
@@ -43,8 +43,51 @@ function spikeShape(base){
  return {x:base+(moving?110*(1-travel):0),height,moving:moving&&travel>0&&travel<1};
 }
 
+function baitShapes(b){
+ const [a,end,next,nextEnd]=b;
+ const opening=clamp01((x-(a-240))/110);
+ const closing=1-clamp01((x-(a-95))/55);
+ const width=(end-a)*opening*closing;
+ const targetWidth=(nextEnd-next)*clamp01((x-(a-40))/140);
+ return [[(a+end-width)/2,(a+end+width)/2],[(next+nextEnd-targetWidth)/2,(next+nextEnd+targetWidth)/2]];
+}
+function allHoles(){const l=levels[level];return [...l.holes.map(holeShape),...(l.baitHoles||[]).flatMap(baitShapes)].filter(h=>h[1]-h[0]>.01);}
+function allSpikes(){
+ const l=levels[level];
+ return l.spikes.flatMap(base=>{
+  const mode=(l.spikeModes||{})[base];
+  if(!mode)return [spikeShape(base)];
+  const initial=base-130, growth=clamp01((x-(initial-240))/100);
+  if(mode==='slide'){
+   const travel=clamp01((x-(initial-70))/100);
+   return [{x:initial+130*travel,height:32*growth,moving:travel>0&&travel<1}];
+  }
+  const retract=clamp01((x-(initial-80))/45);
+  const regrow=clamp01((x-(initial+5))/80);
+  return [{x:initial,height:32*growth*(1-retract),moving:false},{x:base,height:32*regrow,moving:false}];
+ });
+}
+function ceilingShape(c){
+ if(c[3]!=='drop')return c;
+ const age=Math.max(0,(x+size-c[0])/levels[level].speed);
+ const bottom=180+(c[2]-180)*clamp01((age-.08)/.28);
+ return [c[0],c[1],bottom,c[3]];
+}
+function fallingTooth(c){
+ const sx=c[0]+Math.floor((c[1]-c[0])/48)*24;
+ const age=Math.max(0,(x-(sx-85))/levels[level].speed);
+ const fallTime=Math.max(0,age-.16);
+ return {x:sx,top:c[2]-28+900*fallTime*fallTime,height:28,active:age>.16,warning:age>0&&age<=.16};
+}
+function toothHits(t){
+ const left=Math.max(x+4,t.x),right=Math.min(x+size-4,t.x+24);
+ if(left>=right||y+size<=t.top)return false;
+ const near=Math.max(left,Math.min(right,t.x+12));
+ return y<t.top+t.height*(1-Math.abs(near-t.x-12)/12);
+}
+
 function update(dt){if(state==='dead'){deadTime+=dt;for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=850*dt;p.t+=dt;}if(deadTime>.45)$('overlay').classList.remove('hidden');return;}if(state!=='playing')return;const l=levels[level];elapsed+=dt;const previousX=x;x+=l.speed*dt;const previousBottom=y+size;vy+=(held&&vy<0?1550:2050)*dt;y+=vy*dt;
- const openHoles=l.holes.map(holeShape).filter(h=>h[1]>h[0]);
+ const openHoles=allHoles();
  const supported=px=>!openHoles.some(h=>px>=h[0]&&px+size<=h[1]);
  const crossing=y+size>=floor&&previousBottom<=floor;
  const fraction=crossing?Math.max(0,Math.min(1,(floor-previousBottom)/(y+size-previousBottom||1))):1;
@@ -58,30 +101,42 @@ function update(dt){if(state==='dead'){deadTime+=dt;for(const p of particles){p.
    die('届きそうでしたね。届いてはいませんが。');return;
  }
  if(y>490){die(l.fake&&x>l.fake?'ゴールだと、思いました？':'着地点に床があるとは、言っていません。');return;}
- for(const base of l.spikes){
- const spike=spikeShape(base),left=Math.max(x+4,spike.x),right=Math.min(x+size-4,spike.x+34);
+ for(const spike of allSpikes()){
+ const left=Math.max(x+4,spike.x),right=Math.min(x+size-4,spike.x+34);
  if(spike.height>0&&left<right){
   const nearest=Math.max(left,Math.min(right,spike.x+17));
   const surface=floor-spike.height*(1-Math.abs(nearest-spike.x-17)/17);
-  if(y+size>surface&&y<floor){die(level>=2&&(l.hiddenSpikes||[]).includes(base)?'待ってくれるトゲだと、思いました？':'生えてくるところ、見えていましたよね。');return;}
+  if(y+size>surface&&y<floor){die(level>=2?'待ってくれるトゲだと、思いました？':'生えてくるところ、見えていましたよね。');return;}
  }
  }
- for(const c of l.ceil){if(x+size-4>c[0]&&x+4<c[1]&&y<c[2]&&y+size>c[2]-30){die('張り切って跳びましたね。天井が喜んでいます。');return;}}
+ for(const original of l.ceil){
+ const c=ceilingShape(original);
+ if(x+size-4>c[0]&&x+4<c[1]&&y<c[2]-28){die('天井にも、都合というものがあります。');return;}
+ for(let sx=c[0];sx<c[1];sx+=24){
+  if(original[3]==='tooth'&&sx===fallingTooth(original).x)continue;
+  if(toothHits({x:sx,top:c[2]-28,height:28})){die('その高さ、さっきまでは安全でしたね。');return;}
+ }
+ if(original[3]==='tooth'&&toothHits(fallingTooth(original))){die('全部落ちるとは、言っていません。一つで十分です。');return;}
+ }
  if(x>=l.length)win();$('progress').style.width=Math.min(100,(x-100)/(l.length-100)*100)+'%';}
 function text(t,a,b,s=16,color='#6c6d69'){ctx.fillStyle=color;ctx.font=`${s}px monospace`;ctx.fillText(t,a,b);}
 function draw(){const l=levels[level],cam=Math.max(0,x-210);ctx.fillStyle='#eae8df';ctx.fillRect(0,0,viewWidth,viewHeight);ctx.save();ctx.translate(0,viewHeight-480);ctx.strokeStyle='#dad8cf';ctx.lineWidth=1;for(let i=0;i<viewWidth/60+2;i++){const gx=i*60-(cam*.2)%60;ctx.beginPath();ctx.moveTo(gx,480-viewHeight);ctx.lineTo(gx,480);ctx.stroke();}for(let i=0;i<viewHeight/60+1;i++){ctx.beginPath();ctx.moveTo(0,480-i*60);ctx.lineTo(viewWidth,480-i*60);ctx.stroke();}
  ctx.save();ctx.translate(-cam,0);ctx.fillStyle='#292c2a';ctx.fillRect(cam,floor,viewWidth,110);ctx.fillStyle='#77786f';ctx.fillRect(cam,floor,viewWidth,3);
- for(const original of l.holes){
- const h=holeShape(original);
+ for(const h of allHoles()){
  if(h[1]-h[0]>.01){ctx.fillStyle='#eae8df';ctx.fillRect(h[0],floor,h[1]-h[0],110);ctx.fillStyle='#d8402e';ctx.fillRect(h[0],floor,Math.min(2,(h[1]-h[0])/2),110);ctx.fillRect(h[1]-Math.min(2,(h[1]-h[0])/2),floor,Math.min(2,(h[1]-h[0])/2),110);}
  }
- for(const base of l.spikes){
- const spike=spikeShape(base);if(spike.height<=0)continue;
+ for(const spike of allSpikes()){if(spike.height<=0)continue;
  const sx=spike.x;
  if(spike.moving){ctx.strokeStyle='#d8402e';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx+40,floor-8);ctx.lineTo(sx+65,floor-8);ctx.stroke();}
  ctx.fillStyle='#292c2a';ctx.beginPath();ctx.moveTo(sx,floor);ctx.lineTo(sx+17,floor-spike.height);ctx.lineTo(sx+34,floor);ctx.fill();
  }
- for(const c of l.ceil){ctx.fillStyle='#30322e';ctx.fillRect(c[0],0,c[1]-c[0],c[2]-28);for(let a=c[0];a<c[1];a+=24){ctx.beginPath();ctx.moveTo(a,c[2]-28);ctx.lineTo(a+12,c[2]);ctx.lineTo(Math.min(a+24,c[1]),c[2]-28);ctx.fill();}}
- function flag(px,fake){ctx.fillStyle=fake?'#81847b':'#d8402e';ctx.fillRect(px,floor-120,3,120);ctx.fillRect(px+3,floor-120,60,32);text('GOAL',px+10,floor-99,15,'#fff');}if(l.fake)flag(l.fake,true);flag(l.length+30,false);
+ for(const original of l.ceil){
+ const c=ceilingShape(original);
+ ctx.fillStyle='#30322e';ctx.fillRect(c[0],0,c[1]-c[0],c[2]-28);
+ function drawTooth(t){ctx.beginPath();ctx.moveTo(t.x,t.top);ctx.lineTo(t.x+12,t.top+t.height);ctx.lineTo(t.x+24,t.top);ctx.fill();}
+ for(let sx=c[0];sx<c[1];sx+=24){if(original[3]==='tooth'&&sx===fallingTooth(original).x)continue;drawTooth({x:sx,top:c[2]-28,height:28});}
+ if(original[3]==='tooth'){const t=fallingTooth(original);ctx.fillStyle=t.warning?'#d8402e':'#30322e';drawTooth(t);}
+ }
+ function flag(px,fake){ctx.fillStyle='#d8402e';ctx.fillRect(px,floor-120,3,120);ctx.fillRect(px+3,floor-120,60,32);text('GOAL',px+10,floor-99,15,'#fff');}if(l.fake)flag(l.fake,true);flag(l.length+30,false);
  if(state!=='dead'){ctx.fillStyle='#d8402e';ctx.fillRect(x,y,size,size);ctx.fillRect(x+3,y-7,6,9);ctx.fillRect(x+23,y-7,6,9);ctx.fillStyle='#fff';ctx.fillRect(x+17,y+8,5,6);ctx.fillRect(x+26,y+8,5,6);ctx.fillStyle='#292c2a';ctx.fillRect(x+21,y+23,9,3);if(grounded){const step=Math.sin(elapsed*25)*3;ctx.fillStyle='#d8402e';ctx.fillRect(x+3,y+size,8,step+4);ctx.fillRect(x+21,y+size,8,4-step);}}else{ctx.fillStyle='#d8402e';for(const p of particles)ctx.fillRect(p.x,p.y,7,7);}ctx.restore();ctx.restore();}
 function frame(t){if(!last)last=t;acc+=Math.min((t-last)/1000,.05);last=t;while(acc>=1/120){update(1/120);acc-=1/120;}draw();requestAnimationFrame(frame);}load();requestAnimationFrame(frame);
