@@ -11,16 +11,23 @@ const levels=[
  {name:'何もしない勇気',length:2720,speed:255,spikes:[],hiddenSpikes:[],holes:[[2510,2645]],ceil:[],tunnel:[300,2450],temptations:[{at:600,type:'hole'},{at:1000,type:'spike'},{at:1400,type:'hole'},{at:1800,type:'spike'},{at:2200,type:'hole'}],fake:2000},
  {name:'さっきの正解は、もう不正解',length:3800,speed:265,spikes:[1420,2020,2690,3570],hiddenSpikes:[1420,2690,3570],holes:[[1630,1775],[2920,3060]],baitHoles:[[2290,2380,2460,2600]],spikeModes:{2690:'slide',3570:'swap'},ceil:[[1960,2100,245,'drop'],[3180,3350,180,'tooth']],tunnel:[300,1280],temptations:[{at:600,type:'spike'},{at:1000,type:'hole'}],fake:3420}
 ];
+// Familiar routes return with a different ending. Clone nested data so earlier stages stay intact.
+const cloneStage=i=>JSON.parse(JSON.stringify(levels[i]));
+levels.push({...cloneStage(0),name:'ゴールにも逃げる権利',length:2170,escapeGoal:{start:1930,end:2170,hole:[1882,2030],duration:.3}});
+levels.push({...cloneStage(1),name:'着地は終わりではありません',length:2470,escapeGoal:{start:2230,end:2470,hole:[2182,2330],duration:.3,landingTrap:true}});
+levels.push({...cloneStage(4),name:'落ちる勇気',length:4700,underground:{entry:[235,267],floor:618,roof:482,pitBottom:434,surfaceGoal:3030,spike:4560}});
+
 let level=0,deaths=0,state='ready',x=100,y=338,vy=0,held=false,grounded=true,elapsed=0,deadTime=0,last=0,acc=0,particles=[];
-let viewWidth=1000, viewHeight=480;
-function resize(){const w=window.innerWidth,h=window.innerHeight,scale=Math.min(w/640,h/480),dpr=Math.min(window.devicePixelRatio||1,2);viewWidth=w/scale;viewHeight=h/scale;canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(scale*dpr,0,0,scale*dpr,0,0);}
+let viewWidth=1000, viewHeight=480,sceneHeight=480;
+let escapeTriggered=false,escapeAge=0,landingSpike=null,jumpBuffer=0,route='surface';
+function resize(){sceneHeight=levels[level].underground&&route!=='surface'?720:480;const w=window.innerWidth,h=window.innerHeight,scale=Math.min(w/640,h/sceneHeight),dpr=Math.min(window.devicePixelRatio||1,2);viewWidth=w/scale;viewHeight=h/scale;canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(scale*dpr,0,0,scale*dpr,0,0);}
 window.addEventListener('resize',resize);resize();
 const floor=370, size=32;
-function load(){x=100;y=floor-size;vy=0;held=false;grounded=true;elapsed=0;particles=[];$('stage').textContent=String(level+1).padStart(2,'0')+' / '+String(levels.length).padStart(2,'0');$('name').textContent=levels[level].name;$('progress').style.width='0%';}
+function load(){escapeTriggered=false;escapeAge=0;landingSpike=null;jumpBuffer=0;route='surface';resize();x=100;y=floor-size;vy=0;held=false;grounded=true;elapsed=0;particles=[];$('stage').textContent=String(level+1).padStart(2,'0')+' / '+String(levels.length).padStart(2,'0');$('name').textContent=levels[level].name;$('progress').style.width='0%';}
 function start(){if(state==='complete')level=0;load();state='playing';$('overlay').classList.add('hidden');}
-function jump(){if(state!=='playing')return;if(grounded){vy=-650;grounded=false;}held=true;}
+function jump(){if(state!=='playing'||route==='entering')return;if(grounded){vy=-650;grounded=false;jumpBuffer=0;}else if(levels[level].escapeGoal?.landingTrap)jumpBuffer=.14;held=true;}
 function release(){held=false;if(vy< -270)vy=-270;}
-const taunts=["今のは、床のせい。","知っていれば、余裕。","もう一回だけ。","信じてしまいましたね。","あー、えーっと…きっと、お仕事はできるんですよね？","難易度下げますか？…あ、これ以上簡単な無かったか","言い忘れてました！ジャンプボタンは鼻の穴の中じゃありません！え？知ってた？知っててそれ？","今のは練習ですよね？ずっと練習していますものね。","その判断力、ここでは使わない縛りですか？","惜しい！……と言う準備だけはしていました。","大丈夫です。トゲの方は無事でした。","今度こそ、と思いました？私も一瞬だけ。","押すボタンは一つなんですけどね。","落ち着いてください。落ちる方はもう十分です。","そこ、さっきも通りましたよね？初対面の反応でしたね。","操作は覚えましたね。判断はこれからですね。"];
+const taunts=["今のは、床のせい。","知っていれば、余裕。","もう一回だけ。","信じてしまいましたね。","あー、えーっと…きっと、お仕事はできるんですよね？","難易度下げますか？…あ、これ以上簡単なの無かったか","言い忘れてました！ジャンプボタンは鼻の穴の中じゃありません！え？知ってた？知っててそれ？","今のは練習ですよね？ずっと練習していますものね。","その判断力、ここでは使わない縛りですか？","惜しい！……と言う準備だけはしていました。","大丈夫です。トゲの方は無事でした。","今度こそ、と思いました？私も一瞬だけ。","押すボタンは一つなんですけどね。","落ち着いてください。落ちる方はもう十分です。","そこ、さっきも通りましたよね？初対面の反応でしたね。","操作は覚えましたね。判断はこれからですね。"];
 let lastTaunt=-1;
 function randomTaunt(){if(lastTaunt<0){lastTaunt=Math.floor(Math.random()*taunts.length);return taunts[lastTaunt];}const pick=Math.floor(Math.random()*(taunts.length-1));lastTaunt=pick>=lastTaunt?pick+1:pick;return taunts[lastTaunt];}
 function die(reason){if(state!=='playing')return;state='dead';held=false;deaths++;deadTime=0;$('deaths').textContent=String(deaths).padStart(3,'0');$('eyebrow').textContent='YOU DIED · '+String(deaths).padStart(3,'0');$('title').textContent=randomTaunt();$('message').textContent=reason;$('action').innerHTML='もう一度 <span>↺</span>';for(let i=0;i<18;i++)particles.push({x:x+16,y:y+16,vx:Math.sin(i*7)*180,vy:Math.cos(i*3)*240,t:0});}
@@ -34,7 +41,7 @@ window.addEventListener('keydown',e=>{if(['Space','ArrowUp','KeyR'].includes(e.c
 const clamp01=n=>Math.max(0,Math.min(1,n));
 function holeShape(h){
  const age=Math.max(0,(x-(h[0]-220))/levels[level].speed);
- const accelerated=level>=1;
+ const accelerated=level>=1&&level!==8;
  const growth=accelerated?(age<.60?.16*age/.60:.16+.84*clamp01((age-.60)/.18)):clamp01(age/.80);
  const center=(h[0]+h[1])/2,width=(h[1]-h[0])*growth;
  return [center-width/2,center+width/2];
@@ -42,7 +49,7 @@ function holeShape(h){
 function spikeShape(base){
  const hidden=(levels[level].hiddenSpikes||[]).includes(base);
  if(!hidden)return {x:base,height:32,moving:false};
- const moving=level>=2;
+ const moving=level>=2&&level!==8&&level!==9;
  const age=Math.max(0,(x-(base-(moving?360:200)))/levels[level].speed);
  const height=32*clamp01(age/.50);
  const travel=moving?clamp01((age-.80)/.22):1;
@@ -72,7 +79,20 @@ function allCeilings(){
  if(left<l.tunnel[1])out.push([left,l.tunnel[1],328,'tunnel']);
  return out;
 }
-function allHoles(){const l=levels[level];return [...l.holes.map(holeShape),...temptationHoles(),...(l.baitHoles||[]).flatMap(baitShapes)].filter(h=>h[1]-h[0]>.01);}
+function allHoles(){
+ const l=levels[level],holes=[...l.holes.map(holeShape),...temptationHoles(),...(l.baitHoles||[]).flatMap(baitShapes)];
+ if(l.escapeGoal&&escapeTriggered)holes.push(l.escapeGoal.hole);
+ if(l.underground)holes.push(l.underground.entry);
+ return holes.filter(h=>h[1]-h[0]>.01);
+}
+function surfaceTail(){
+ if(!levels[level].underground)return [];
+ const positions=[3190,3390,3590,3770,3930,4070,4190,4290,4360];
+ for(let px=4410;px<4900;px+=26)positions.push(px);
+ return positions.map(px=>({x:px,height:32,moving:false}));
+}
+function goalPosition(){const g=levels[level].escapeGoal;return g?g.start+(g.end-g.start)*clamp01(escapeAge/g.duration):levels[level].length+30;}
+
 function allSpikes(){
  const l=levels[level];
  return [...l.spikes.flatMap(base=>{
@@ -86,7 +106,7 @@ function allSpikes(){
   const retract=clamp01((x-(initial-80))/45);
   const regrow=clamp01((x-(initial+5))/80);
   return [{x:initial,height:32*growth*(1-retract),moving:false},{x:base,height:32*regrow,moving:false}];
- }),...(l.temptations||[]).filter(t=>t.type==='spike').map(t=>({x:t.at,height:32*temptationLift(t),moving:false}))];
+ }),...surfaceTail(),...(landingSpike?[landingSpike]:[]),...(l.temptations||[]).filter(t=>t.type==='spike').map(t=>({x:t.at,height:32*temptationLift(t),moving:false}))];
 }
 function ceilingShape(c){
  if(c[3]!=='drop')return c;
@@ -107,45 +127,111 @@ function toothHits(t){
  return y<t.top+t.height*(1-Math.abs(near-t.x-12)/12);
 }
 
-function update(dt){if(state==='dead'){deadTime+=dt;for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=850*dt;p.t+=dt;}if(deadTime>.45)$('overlay').classList.remove('hidden');return;}if(state!=='playing')return;const l=levels[level];elapsed+=dt;const previousX=x;x+=l.speed*dt;const previousBottom=y+size;vy+=(held&&vy<0?1550:2050)*dt;y+=vy*dt;
- const openHoles=allHoles();
- const supported=px=>!openHoles.some(h=>px>=h[0]&&px+size<=h[1]);
- const crossing=y+size>=floor&&previousBottom<=floor;
- const fraction=crossing?Math.max(0,Math.min(1,(floor-previousBottom)/(y+size-previousBottom||1))):1;
- const crossingX=previousX+(x-previousX)*fraction;
- if(vy>=0&&y+size>=floor&&previousBottom<=floor+8&&
-    (supported(x)||crossing&&supported(crossingX))){
-   y=floor-size;vy=0;grounded=true;
- }else grounded=false;
- // A jump that really is too low hits the bank instead of passing through it.
- if(y+size>floor+8&&y<floor&&openHoles.some(h=>previousX+size<=h[1]&&x+size>h[1])){
-   die('届きそうでしたね。届いてはいませんが。');return;
- }
- if(y>490){die(l.fake&&x>l.fake?'ゴールだと、思いました？':'着地点に床があるとは、言っていません。');return;}
- for(const spike of allSpikes()){
+function spikeHits(spike,ground=floor){
  const left=Math.max(x+4,spike.x),right=Math.min(x+size-4,spike.x+34);
- if(spike.height>0&&left<right){
-  const nearest=Math.max(left,Math.min(right,spike.x+17));
-  const surface=floor-spike.height*(1-Math.abs(nearest-spike.x-17)/17);
-  if(y+size>surface&&y<floor){die(level>=2?'待ってくれるトゲだと、思いました？':'生えてくるところ、見えていましたよね。');return;}
+ if(spike.height<=0||left>=right)return false;
+ const nearest=Math.max(left,Math.min(right,spike.x+17));
+ const surface=ground-spike.height*(1-Math.abs(nearest-spike.x-17)/17);
+ return y+size>surface&&y<ground;
+}
+function update(dt){
+ if(state==='dead'){
+  deadTime+=dt;
+  // Let the escaping flag finish its 0.3 second movement even during the death animation.
+  if(escapeTriggered)escapeAge+=dt;
+  for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=850*dt;p.t+=dt;}
+  if(deadTime>.45)$('overlay').classList.remove('hidden');return;
  }
+ if(state!=='playing')return;
+ const l=levels[level],u=l.underground,previousX=x,previousBottom=y+size,wasGrounded=grounded;
+ elapsed+=dt;jumpBuffer=Math.max(0,jumpBuffer-dt);
+ if(route!=='entering')x+=l.speed*dt;
+ // The one-tile entrance accepts a standing player's center; ordinary pit ledges keep the existing footprint rule.
+ if(u&&route==='surface'&&grounded&&previousX+size/2<u.entry[1]&&x+size/2>=u.entry[0]){
+  route='entering';x=u.entry[0];grounded=false;held=false;vy=0;resize();
  }
- for(const original of allCeilings()){
- const c=ceilingShape(original);
- if(x+size-4>c[0]&&x+4<c[1]&&y<c[2]-28){die(original[3]==='tunnel'?'押さなければ、何も起きなかったのに。':'天井にも、都合というものがあります。');return;}
- for(let sx=c[0];sx<c[1];sx+=24){
-  if(original[3]==='tooth'&&sx===fallingTooth(original).x)continue;
-  if(toothHits({x:sx,top:c[2]-28,height:28})){die('その高さ、さっきまでは安全でしたね。');return;}
+ if(l.escapeGoal){
+  if(!escapeTriggered&&x+size>=l.escapeGoal.start){escapeTriggered=true;escapeAge=0;}
+  else if(escapeTriggered)escapeAge+=dt;
  }
- if(original[3]==='tooth'&&toothHits(fallingTooth(original))){die('全部落ちるとは、言っていません。一つで十分です。');return;}
+ vy+=(held&&vy<0?1550:2050)*dt;y+=vy*dt;
+ const below=u&&route!=='surface',ground=below?u.floor:floor;
+ const openHoles=below?[]:allHoles();
+ const supported=px=>!openHoles.some(h=>px>=h[0]&&px+size<=h[1]);
+ const crossing=y+size>=ground&&previousBottom<=ground;
+ const fraction=crossing?clamp01((ground-previousBottom)/(y+size-previousBottom||1)):1;
+ const crossingX=previousX+(x-previousX)*fraction;
+ if(vy>=0&&y+size>=ground&&previousBottom<=ground+8&&(supported(x)||crossing&&supported(crossingX))){
+  y=ground-size;vy=0;grounded=true;
+  if(route==='entering')route='underground';
+  if(l.escapeGoal?.landingTrap&&escapeTriggered&&!landingSpike&&!wasGrounded&&x+size>l.escapeGoal.hole[1]){
+   landingSpike={x:x+size+18,height:32,moving:false};
+  }
+  if(jumpBuffer>0){vy=held?-650:-450;grounded=false;jumpBuffer=0;}
+ }else grounded=false;
+ if(!below&&y+size>floor+8&&y<floor&&openHoles.some(h=>previousX+size<=h[1]&&x+size>h[1])){
+  die('届きそうでしたね。届いてはいませんが。');return;
  }
- if(x>=l.length)win();$('progress').style.width=Math.min(100,(x-100)/(l.length-100)*100)+'%';}
+ if(below){
+  // The empty tunnel has a solid, harmless roof. Only the last emerging teeth are lethal.
+  if(route==='underground'&&x>=u.spike-110){
+   const growth=clamp01((x-(u.spike-110))/35);
+   for(let px=u.spike-90;px<u.spike+95;px+=24){
+    if(toothHits({x:px,top:u.roof,height:30*growth})){die('ここまで来て、大きく跳びましたね。');return;}
+   }
+  }
+  if(route==='underground'&&y<u.roof){y=u.roof;vy=Math.max(0,vy);}
+  if(x>=u.spike-40&&spikeHits({x:u.spike,height:32},u.floor)){die('最後の最後まで、油断なさいませんように。');return;}
+ }else{
+  if(u){
+   // Other surface pits end two tiles down in a spike bed; they never connect to the safe tunnel.
+   for(const h of openHoles){if(h===u.entry)continue;
+    if(x+size-4>h[0]&&x+4<h[1]&&y+size>u.pitBottom-24){die('地下への入口は、そこではありませんでした。');return;}
+   }
+  }
+  if(y>490){die(escapeTriggered?'ゴールが待っているなんて、誰が言いました？':l.fake&&x>l.fake?'ゴールだと、思いました？':'着地点に床があるとは、言っていません。');return;}
+  for(const spike of allSpikes()){
+   if(spikeHits(spike)){die(landingSpike===spike?'着地、おめでとうございます。次のジャンプは？':level>=2?'待ってくれるトゲだと、思いました？':'生えてくるところ、見えていましたよね。');return;}
+  }
+  for(const original of allCeilings()){
+   const c=ceilingShape(original);
+   if(x+size-4>c[0]&&x+4<c[1]&&y<c[2]-28){die(original[3]==='tunnel'?'押さなければ、何も起きなかったのに。':'天井にも、都合というものがあります。');return;}
+   for(let sx=c[0];sx<c[1];sx+=24){
+    if(original[3]==='tooth'&&sx===fallingTooth(original).x)continue;
+    if(toothHits({x:sx,top:c[2]-28,height:28})){die('その高さ、さっきまでは安全でしたね。');return;}
+   }
+   if(original[3]==='tooth'&&toothHits(fallingTooth(original))){die('全部落ちるとは、言っていません。一つで十分です。');return;}
+  }
+ }
+ const atGoal=l.escapeGoal?escapeTriggered&&escapeAge>=l.escapeGoal.duration&&x+size>=l.escapeGoal.end&&grounded:x>=l.length;
+ if(atGoal&&(!u||route==='underground'))win();
+ $('progress').style.width=Math.min(100,(x-100)/(l.length-100)*100)+'%';
+}
+
 function text(t,a,b,s=16,color='#6c6d69'){ctx.fillStyle=color;ctx.font=`${s}px monospace`;ctx.fillText(t,a,b);}
-function draw(){const l=levels[level],cam=Math.max(0,x-210);ctx.fillStyle='#eae8df';ctx.fillRect(0,0,viewWidth,viewHeight);ctx.save();ctx.translate(0,viewHeight-480);ctx.strokeStyle='#dad8cf';ctx.lineWidth=1;for(let i=0;i<viewWidth/60+2;i++){const gx=i*60-(cam*.2)%60;ctx.beginPath();ctx.moveTo(gx,480-viewHeight);ctx.lineTo(gx,480);ctx.stroke();}for(let i=0;i<viewHeight/60+1;i++){ctx.beginPath();ctx.moveTo(0,480-i*60);ctx.lineTo(viewWidth,480-i*60);ctx.stroke();}
- ctx.save();ctx.translate(-cam,0);ctx.fillStyle='#292c2a';ctx.fillRect(cam,floor,viewWidth,110);ctx.fillStyle='#77786f';ctx.fillRect(cam,floor,viewWidth,3);
- for(const h of allHoles()){
- if(h[1]-h[0]>.01){ctx.fillStyle='#eae8df';ctx.fillRect(h[0],floor,h[1]-h[0],110);ctx.fillStyle='#d8402e';ctx.fillRect(h[0],floor,Math.min(2,(h[1]-h[0])/2),110);ctx.fillRect(h[1]-Math.min(2,(h[1]-h[0])/2),floor,Math.min(2,(h[1]-h[0])/2),110);}
+function draw(){const l=levels[level],cam=Math.max(0,x-210);ctx.fillStyle='#eae8df';ctx.fillRect(0,0,viewWidth,viewHeight);ctx.save();ctx.translate(0,viewHeight-sceneHeight);ctx.strokeStyle='#dad8cf';ctx.lineWidth=1;for(let i=0;i<viewWidth/60+2;i++){const gx=i*60-(cam*.2)%60;ctx.beginPath();ctx.moveTo(gx,sceneHeight-viewHeight);ctx.lineTo(gx,sceneHeight);ctx.stroke();}for(let i=0;i<viewHeight/60+1;i++){ctx.beginPath();ctx.moveTo(0,sceneHeight-i*60);ctx.lineTo(viewWidth,sceneHeight-i*60);ctx.stroke();}
+ ctx.save();ctx.translate(-cam,0);ctx.fillStyle='#292c2a';ctx.fillRect(cam,floor,viewWidth,sceneHeight-floor);ctx.fillStyle='#77786f';ctx.fillRect(cam,floor,viewWidth,3);
+ const u=l.underground,below=u&&route!=='surface';
+ if(below){
+  ctx.fillStyle='#d8ddd4';ctx.fillRect(cam,u.roof,viewWidth,u.floor-u.roof);
+  ctx.fillStyle='#9baca1';ctx.fillRect(cam,u.floor,viewWidth,3);
+  ctx.fillStyle='#eae8df';ctx.fillRect(u.entry[0],floor,u.entry[1]-u.entry[0],u.floor-floor);
  }
+ for(const h of allHoles()){
+  const entry=u&&h===u.entry,depth=u?(entry&&below?u.floor-floor:u.pitBottom-floor):sceneHeight-floor;
+  ctx.fillStyle='#eae8df';ctx.fillRect(h[0],floor,h[1]-h[0],depth);
+  ctx.fillStyle='#d8402e';ctx.fillRect(h[0],floor,Math.min(2,(h[1]-h[0])/2),depth);ctx.fillRect(h[1]-Math.min(2,(h[1]-h[0])/2),floor,Math.min(2,(h[1]-h[0])/2),depth);
+  if(u&&!entry){
+   ctx.save();ctx.beginPath();ctx.rect(h[0],floor,h[1]-h[0],depth);ctx.clip();ctx.fillStyle='#292c2a';
+   for(let px=h[0];px<h[1];px+=18){ctx.beginPath();ctx.moveTo(px,u.pitBottom);ctx.lineTo(px+9,u.pitBottom-24);ctx.lineTo(px+18,u.pitBottom);ctx.fill();}ctx.restore();
+  }
+ }
+ if(below&&x>=u.spike-110){
+  const growth=clamp01((x-(u.spike-110))/35);ctx.fillStyle='#292c2a';
+  for(let px=u.spike-90;px<u.spike+95;px+=24){ctx.beginPath();ctx.moveTo(px,u.roof);ctx.lineTo(px+12,u.roof+30*growth);ctx.lineTo(px+24,u.roof);ctx.fill();}
+  if(x>=u.spike-40){ctx.beginPath();ctx.moveTo(u.spike,u.floor);ctx.lineTo(u.spike+17,u.floor-32);ctx.lineTo(u.spike+34,u.floor);ctx.fill();}
+ }
+
  for(const spike of allSpikes()){if(spike.height<=0)continue;
  const sx=spike.x;
  if(spike.moving){ctx.strokeStyle='#d8402e';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx+40,floor-8);ctx.lineTo(sx+65,floor-8);ctx.stroke();}
@@ -158,6 +244,10 @@ function draw(){const l=levels[level],cam=Math.max(0,x-210);ctx.fillStyle='#eae8
  for(let sx=c[0];sx<c[1];sx+=24){if(original[3]==='tooth'&&sx===fallingTooth(original).x)continue;drawTooth({x:sx,top:c[2]-28,height:28});}
  if(original[3]==='tooth'){const t=fallingTooth(original);ctx.fillStyle=t.warning?'#d8402e':'#30322e';drawTooth(t);}
  }
- function flag(px,fake){ctx.fillStyle='#d8402e';ctx.fillRect(px,floor-120,3,120);ctx.fillRect(px+3,floor-120,60,32);if(!fake)text('GOAL',px+10,floor-99,15,'#fff');}if(l.fake)flag(l.fake,true);flag(l.length+30,false);
+ function flag(px,fake,ground=floor){ctx.fillStyle='#d8402e';ctx.fillRect(px,ground-120,3,120);ctx.fillRect(px+3,ground-120,60,32);if(!fake)text('GOAL',px+10,ground-99,15,'#fff');}
+ if(l.fake)flag(l.fake,true);
+ if(u){flag(u.surfaceGoal,true);if(below)flag(l.length+30,false,u.floor);}
+ else flag(goalPosition(),false);
+
  if(state!=='dead'){ctx.fillStyle='#d8402e';ctx.fillRect(x,y,size,size);ctx.fillRect(x+3,y-7,6,9);ctx.fillRect(x+23,y-7,6,9);ctx.fillStyle='#fff';ctx.fillRect(x+17,y+8,5,6);ctx.fillRect(x+26,y+8,5,6);ctx.fillStyle='#292c2a';ctx.fillRect(x+21,y+23,9,3);if(grounded){const step=Math.sin(elapsed*25)*3;ctx.fillStyle='#d8402e';ctx.fillRect(x+3,y+size,8,step+4);ctx.fillRect(x+21,y+size,8,4-step);}}else{ctx.fillStyle='#d8402e';for(const p of particles)ctx.fillRect(p.x,p.y,7,7);}ctx.restore();ctx.restore();}
 function frame(t){if(!last)last=t;acc+=Math.min((t-last)/1000,.05);last=t;while(acc>=1/120){update(1/120);acc-=1/120;}draw();requestAnimationFrame(frame);}load();requestAnimationFrame(frame);
