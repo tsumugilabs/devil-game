@@ -2,11 +2,11 @@
 const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');
 const $=id=>document.getElementById(id);
 const levels=[
- {name:'はじめの裏切り',length:1800,speed:235,spikes:[620,1250],holes:[[820,965,670]],ceil:[]},
- {name:'高く跳べばいい、とは限らない',length:2000,speed:245,spikes:[640,1280,1640],holes:[[860,1005,700]],ceil:[[570,760,245]]},
- {name:'足元をご覧ください',length:2250,speed:255,spikes:[520,1770],holes:[[710,850,565],[1120,1255,965],[1450,1585,1290]],ceil:[]},
- {name:'ゴールはすぐそこ',length:2400,speed:250,spikes:[580,1160,1710],holes:[[780,920,620],[1990,2140,1830]],ceil:[[1085,1260,245]],fake:1830},
- {name:'最後まで信用しないで',length:2800,speed:260,spikes:[540,1160,1770,2460],holes:[[740,885,585],[1380,1520,1220],[1980,2120,1810]],ceil:[[1090,1250,245],[2390,2540,245]],fake:2240}
+ {name:'はじめの裏切り',length:1900,speed:235,spikes:[620,1250],hiddenSpikes:[1250],holes:[[820,965,755],[1590,1730,1535]],ceil:[],fake:1460},
+ {name:'高く跳べばいい、とは限らない',length:2200,speed:245,spikes:[640,1280,1640],hiddenSpikes:[1640],holes:[[860,1005,795],[1870,2010,1815]],ceil:[[570,760,245]],fake:1770},
+ {name:'足元をご覧ください',length:2300,speed:255,spikes:[520,1770],hiddenSpikes:[520,1770],holes:[[710,850,645],[1120,1255,1055],[1450,1585,1385],[2010,2150,1955]],ceil:[],fake:1900},
+ {name:'ゴールはすぐそこ',length:2500,speed:250,spikes:[580,1160,1710,2280],hiddenSpikes:[1710,2280],holes:[[780,920,715],[1990,2140,1925]],ceil:[[1085,1260,245]],fake:1830},
+ {name:'最後まで信用しないで',length:3000,speed:260,spikes:[540,1160,1770,2460,2880],hiddenSpikes:[540,1770,2460,2880],holes:[[740,885,675],[1380,1520,1315],[1980,2120,1915],[2660,2800,2605]],ceil:[[1090,1250,245],[2390,2540,245]],fake:2240}
 ];
 let level=0,deaths=0,state='ready',x=100,y=338,vy=0,held=false,grounded=true,elapsed=0,deadTime=0,last=0,acc=0,particles=[];
 let viewWidth=1000, viewHeight=480;
@@ -36,18 +36,18 @@ function update(dt){if(state==='dead'){deadTime+=dt;for(const p of particles){p.
  }else grounded=false;
  // A jump that really is too low hits the bank instead of passing through it.
  if(y+size>floor+8&&y<floor&&openHoles.some(h=>previousX+size<=h[1]&&x+size>h[1])){
-   die('あと少し。今度は、もう少し長く押してみてください。');return;
+   die('届きそうでしたね。届いてはいませんが。');return;
  }
- if(y>490){die('着地点に床があるとは、言っていません。');return;}
- for(const sx of l.spikes){if(x+size-5>sx+5&&x+5<sx+29&&y+size>floor-27&&y<floor){die('トゲに触れました。跳ぶタイミングを変えてみてください。');return;}}
- for(const c of l.ceil){if(x+size-4>c[0]&&x+4<c[1]&&y<c[2]&&y+size>c[2]-30){die('高く跳びすぎです。ここは短押しで。');return;}}
+ if(y>490){die(l.fake&&x>l.fake?'ゴールだと、思いました？':'着地点に床があるとは、言っていません。');return;}
+ for(const sx of l.spikes){if((l.hiddenSpikes||[]).includes(sx)&&x+size<sx-12)continue;if(x+size-5>sx+5&&x+5<sx+29&&y+size>floor-27&&y<floor){die((l.hiddenSpikes||[]).includes(sx)?'さっきまで、何もありませんでしたよね。':'そのジャンプ、少し早かったのでは？');return;}}
+ for(const c of l.ceil){if(x+size-4>c[0]&&x+4<c[1]&&y<c[2]&&y+size>c[2]-30){die('張り切って跳びましたね。天井が喜んでいます。');return;}}
  if(x>=l.length)win();$('progress').style.width=Math.min(100,(x-100)/(l.length-100)*100)+'%';}
 function text(t,a,b,s=16,color='#6c6d69'){ctx.fillStyle=color;ctx.font=`${s}px monospace`;ctx.fillText(t,a,b);}
 function draw(){const l=levels[level],cam=Math.max(0,x-210);ctx.fillStyle='#eae8df';ctx.fillRect(0,0,viewWidth,viewHeight);ctx.save();ctx.translate(0,viewHeight-480);ctx.strokeStyle='#dad8cf';ctx.lineWidth=1;for(let i=0;i<viewWidth/60+2;i++){const gx=i*60-(cam*.2)%60;ctx.beginPath();ctx.moveTo(gx,480-viewHeight);ctx.lineTo(gx,480);ctx.stroke();}for(let i=0;i<viewHeight/60+1;i++){ctx.beginPath();ctx.moveTo(0,480-i*60);ctx.lineTo(viewWidth,480-i*60);ctx.stroke();}
  ctx.save();ctx.translate(-cam,0);ctx.fillStyle='#292c2a';ctx.fillRect(cam,floor,viewWidth,110);ctx.fillStyle='#77786f';ctx.fillRect(cam,floor,viewWidth,3);
  for(const h of l.holes){if(shown.has(h[0])){ctx.fillStyle='#eae8df';ctx.fillRect(h[0],floor,h[1]-h[0],110);ctx.fillStyle='#d8402e';ctx.fillRect(h[0],floor,3,110);ctx.fillRect(h[1]-3,floor,3,110);text('!',h[0]+(h[1]-h[0])/2-5,445,22,'#c84a37');}else{ctx.strokeStyle='#65675e';ctx.setLineDash([3,5]);ctx.beginPath();ctx.moveTo(h[0],floor+4);ctx.lineTo(h[1],floor+4);ctx.stroke();ctx.setLineDash([]);}}
- for(const sx of l.spikes){ctx.fillStyle='#292c2a';ctx.beginPath();ctx.moveTo(sx,floor);ctx.lineTo(sx+17,floor-32);ctx.lineTo(sx+34,floor);ctx.fill();}
+ for(const sx of l.spikes){if((l.hiddenSpikes||[]).includes(sx)&&x+size<sx-12)continue;ctx.fillStyle='#292c2a';ctx.beginPath();ctx.moveTo(sx,floor);ctx.lineTo(sx+17,floor-32);ctx.lineTo(sx+34,floor);ctx.fill();}
  for(const c of l.ceil){ctx.fillStyle='#30322e';ctx.fillRect(c[0],0,c[1]-c[0],c[2]-28);for(let a=c[0];a<c[1];a+=24){ctx.beginPath();ctx.moveTo(a,c[2]-28);ctx.lineTo(a+12,c[2]);ctx.lineTo(Math.min(a+24,c[1]),c[2]-28);ctx.fill();}}
- function flag(px,fake){ctx.fillStyle=fake?'#81847b':'#d8402e';ctx.fillRect(px,floor-120,3,120);ctx.fillRect(px+3,floor-120,60,32);text(fake?'GOAL?':'GOAL',px+10,floor-99,15,'#fff');}if(l.fake)flag(l.fake,true);flag(l.length+30,false);
+ function flag(px,fake){ctx.fillStyle=fake?'#81847b':'#d8402e';ctx.fillRect(px,floor-120,3,120);ctx.fillRect(px+3,floor-120,60,32);text('GOAL',px+10,floor-99,15,'#fff');}if(l.fake)flag(l.fake,true);flag(l.length+30,false);
  if(state!=='dead'){ctx.fillStyle='#d8402e';ctx.fillRect(x,y,size,size);ctx.fillRect(x+3,y-7,6,9);ctx.fillRect(x+23,y-7,6,9);ctx.fillStyle='#fff';ctx.fillRect(x+17,y+8,5,6);ctx.fillRect(x+26,y+8,5,6);ctx.fillStyle='#292c2a';ctx.fillRect(x+21,y+23,9,3);if(grounded){const step=Math.sin(elapsed*25)*3;ctx.fillStyle='#d8402e';ctx.fillRect(x+3,y+size,8,step+4);ctx.fillRect(x+21,y+size,8,4-step);}}else{ctx.fillStyle='#d8402e';for(const p of particles)ctx.fillRect(p.x,p.y,7,7);}ctx.restore();ctx.restore();}
 function frame(t){if(!last)last=t;acc+=Math.min((t-last)/1000,.05);last=t;while(acc>=1/120){update(1/120);acc-=1/120;}draw();requestAnimationFrame(frame);}load();requestAnimationFrame(frame);
