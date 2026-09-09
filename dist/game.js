@@ -6,19 +6,25 @@ const levels=[
  {name:'高く跳べばいい、とは限らない',length:2200,speed:245,spikes:[640,1280,1640],hiddenSpikes:[1640],holes:[[860,1005,795],[1870,2010,1815]],ceil:[[570,760,180]],fake:1770},
  {name:'足元をご覧ください',length:2300,speed:255,spikes:[520,1770],hiddenSpikes:[520,1770],holes:[[710,850,645],[2010,2150,1955]],baitHoles:[[1120,1210,1290,1430]],spikeModes:{1770:'slide'},ceil:[[430,610,245,'drop']],fake:1900},
  {name:'ゴールはすぐそこ',length:2500,speed:250,spikes:[580,1160,1710,2280],hiddenSpikes:[1710,2280],holes:[[780,920,715],[1990,2140,1925]],spikeModes:{1710:'swap'},ceil:[[1085,1260,245,'drop'],[1420,1600,180,'tooth']],fake:1830},
- {name:'最後まで信用しないで',length:3000,speed:260,spikes:[540,1160,1770,2460,2880],hiddenSpikes:[540,1770,2460,2880],holes:[[740,885,675],[1980,2120,1915],[2660,2800,2605]],baitHoles:[[1380,1470,1550,1690]],spikeModes:{1770:'slide',2880:'swap'},ceil:[[1090,1250,245,'drop'],[2210,2340,180,'tooth'],[2390,2540,245,'drop']],fake:2240}
+ {name:'最後まで信用しないで',length:3000,speed:260,spikes:[540,1160,1770,2460,2880],hiddenSpikes:[540,1770,2460,2880],holes:[[740,885,675],[1980,2120,1915],[2660,2800,2605]],baitHoles:[[1380,1470,1550,1690]],spikeModes:{1770:'slide',2880:'swap'},ceil:[[1090,1250,245,'drop'],[2210,2340,180,'tooth'],[2390,2540,245,'drop']],fake:2240},
+ {name:'その着地点、予約済みです',length:3300,speed:265,spikes:[520,1110,1740,2250,3040],hiddenSpikes:[520,1740,2250,3040],holes:[[740,885],[1920,2065],[2780,2920]],baitHoles:[[1340,1430,1510,1650]],spikeModes:{1740:'slide',2250:'swap',3040:'slide'},ceil:[[1040,1200,245,'drop'],[2420,2600,180,'tooth']],fake:2660},
+ {name:'何もしない勇気',length:2600,speed:255,spikes:[],hiddenSpikes:[],holes:[],ceil:[],tunnel:[300,2450],temptations:[{at:600,type:'hole'},{at:1000,type:'spike'},{at:1400,type:'hole'},{at:1800,type:'spike'},{at:2200,type:'hole'}],fake:2000},
+ {name:'さっきの正解は、もう不正解',length:3800,speed:265,spikes:[1420,2020,2690,3570],hiddenSpikes:[1420,2690,3570],holes:[[1630,1775],[2920,3060]],baitHoles:[[2290,2380,2460,2600]],spikeModes:{2690:'slide',3570:'swap'},ceil:[[1960,2100,245,'drop'],[3180,3350,180,'tooth']],tunnel:[300,1280],temptations:[{at:600,type:'spike'},{at:1000,type:'hole'}],fake:3420}
 ];
 let level=0,deaths=0,state='ready',x=100,y=338,vy=0,held=false,grounded=true,elapsed=0,deadTime=0,last=0,acc=0,particles=[];
 let viewWidth=1000, viewHeight=480;
 function resize(){const w=window.innerWidth,h=window.innerHeight,scale=Math.min(w/640,h/480),dpr=Math.min(window.devicePixelRatio||1,2);viewWidth=w/scale;viewHeight=h/scale;canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(scale*dpr,0,0,scale*dpr,0,0);}
 window.addEventListener('resize',resize);resize();
 const floor=370, size=32;
-function load(){x=100;y=floor-size;vy=0;held=false;grounded=true;elapsed=0;particles=[];$('stage').textContent=String(level+1).padStart(2,'0')+' / 05';$('name').textContent=levels[level].name;$('progress').style.width='0%';}
+function load(){x=100;y=floor-size;vy=0;held=false;grounded=true;elapsed=0;particles=[];$('stage').textContent=String(level+1).padStart(2,'0')+' / '+String(levels.length).padStart(2,'0');$('name').textContent=levels[level].name;$('progress').style.width='0%';}
 function start(){if(state==='complete')level=0;load();state='playing';$('overlay').classList.add('hidden');}
 function jump(){if(state!=='playing')return;if(grounded){vy=-650;grounded=false;}held=true;}
 function release(){held=false;if(vy< -270)vy=-270;}
-function die(reason){if(state!=='playing')return;state='dead';held=false;deaths++;deadTime=0;$('deaths').textContent=String(deaths).padStart(3,'0');$('eyebrow').textContent='YOU DIED · '+String(deaths).padStart(3,'0');$('title').textContent=['今のは、床のせい。','知っていれば、余裕。','もう一回だけ。','信じてしまいましたね。'][deaths%4];$('message').textContent=reason;$('action').innerHTML='もう一度 <span>↺</span>';for(let i=0;i<18;i++)particles.push({x:x+16,y:y+16,vx:Math.sin(i*7)*180,vy:Math.cos(i*3)*240,t:0});}
-function win(){state=level===4?'complete':'cleared';held=false;$('eyebrow').textContent=state==='complete'?'HELL, CONQUERED.':'STAGE CLEAR';$('title').textContent=state==='complete'?'お見事。悪魔も降参です。':'まだ、終わりではありません。';$('message').textContent=state==='complete'?`全5ステージを突破。死亡回数：${deaths}回`:'次のステージでは、別の罠が待っています。';$('action').innerHTML=state==='complete'?'最初から遊ぶ <span>↺</span>':'次のステージ <span>→</span>';$('overlay').classList.remove('hidden');}
+const taunts=["今のは、床のせい。","知っていれば、余裕。","もう一回だけ。","信じてしまいましたね。","あー、えーっと…きっと、お仕事はできるんですよね？","難易度下げますか？…あ、これ以上簡単な無かったか","言い忘れてました！ジャンプボタンは鼻の穴の中じゃありません！え？知ってた？知っててそれ？","今のは練習ですよね？ずっと練習していますものね。","その判断力、ここでは使わない縛りですか？","惜しい！……と言う準備だけはしていました。","大丈夫です。トゲの方は無事でした。","今度こそ、と思いました？私も一瞬だけ。","押すボタンは一つなんですけどね。","落ち着いてください。落ちる方はもう十分です。","そこ、さっきも通りましたよね？初対面の反応でしたね。","操作は覚えましたね。判断はこれからですね。"];
+let lastTaunt=-1;
+function randomTaunt(){if(lastTaunt<0){lastTaunt=Math.floor(Math.random()*taunts.length);return taunts[lastTaunt];}const pick=Math.floor(Math.random()*(taunts.length-1));lastTaunt=pick>=lastTaunt?pick+1:pick;return taunts[lastTaunt];}
+function die(reason){if(state!=='playing')return;state='dead';held=false;deaths++;deadTime=0;$('deaths').textContent=String(deaths).padStart(3,'0');$('eyebrow').textContent='YOU DIED · '+String(deaths).padStart(3,'0');$('title').textContent=randomTaunt();$('message').textContent=reason;$('action').innerHTML='もう一度 <span>↺</span>';for(let i=0;i<18;i++)particles.push({x:x+16,y:y+16,vx:Math.sin(i*7)*180,vy:Math.cos(i*3)*240,t:0});}
+function win(){state=level===levels.length-1?'complete':'cleared';held=false;$('eyebrow').textContent=state==='complete'?'HELL, CONQUERED.':'STAGE CLEAR';$('title').textContent=state==='complete'?'お見事。悪魔も降参です。':'まだ、終わりではありません。';$('message').textContent=state==='complete'?`全${levels.length}ステージを突破。死亡回数：${deaths}回`:'次のステージでは、別の罠が待っています。';$('action').innerHTML=state==='complete'?'最初から遊ぶ <span>↺</span>':'次のステージ <span>→</span>';$('overlay').classList.remove('hidden');}
 function act(){if(state==='cleared')level++;start();}
 $('action').addEventListener('click',act);$('restart').addEventListener('click',start);
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.setPointerCapture(e.pointerId);jump();});canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);
@@ -51,10 +57,25 @@ function baitShapes(b){
  const targetWidth=(nextEnd-next)*clamp01((x-(a-40))/140);
  return [[(a+end-width)/2,(a+end+width)/2],[(next+nextEnd-targetWidth)/2,(next+nextEnd+targetWidth)/2]];
 }
-function allHoles(){const l=levels[level];return [...l.holes.map(holeShape),...(l.baitHoles||[]).flatMap(baitShapes)].filter(h=>h[1]-h[0]>.01);}
+function temptationLift(t){return clamp01((x-(t.at-360))/100)*(1-clamp01((x-(t.at-105))/65));}
+function temptationHoles(){return (levels[level].temptations||[]).filter(t=>t.type==='hole').map(t=>{const width=130*temptationLift(t);return [t.at+65-width/2,t.at+65+width/2];});}
+function allCeilings(){
+ const l=levels[level],out=[...l.ceil];
+ if(!l.tunnel)return out;
+ let left=l.tunnel[0];
+ for(const t of l.temptations){
+  const start=t.at-160,end=t.at+160;
+  if(start>left)out.push([left,start,328,'tunnel']);
+  out.push([start,end,328-148*temptationLift(t),'tunnel']);
+  left=end;
+ }
+ if(left<l.tunnel[1])out.push([left,l.tunnel[1],328,'tunnel']);
+ return out;
+}
+function allHoles(){const l=levels[level];return [...l.holes.map(holeShape),...temptationHoles(),...(l.baitHoles||[]).flatMap(baitShapes)].filter(h=>h[1]-h[0]>.01);}
 function allSpikes(){
  const l=levels[level];
- return l.spikes.flatMap(base=>{
+ return [...l.spikes.flatMap(base=>{
   const mode=(l.spikeModes||{})[base];
   if(!mode)return [spikeShape(base)];
   const initial=base-130, growth=clamp01((x-(initial-240))/100);
@@ -65,7 +86,7 @@ function allSpikes(){
   const retract=clamp01((x-(initial-80))/45);
   const regrow=clamp01((x-(initial+5))/80);
   return [{x:initial,height:32*growth*(1-retract),moving:false},{x:base,height:32*regrow,moving:false}];
- });
+ }),...(l.temptations||[]).filter(t=>t.type==='spike').map(t=>({x:t.at,height:32*temptationLift(t),moving:false}))];
 }
 function ceilingShape(c){
  if(c[3]!=='drop')return c;
@@ -109,9 +130,9 @@ function update(dt){if(state==='dead'){deadTime+=dt;for(const p of particles){p.
   if(y+size>surface&&y<floor){die(level>=2?'待ってくれるトゲだと、思いました？':'生えてくるところ、見えていましたよね。');return;}
  }
  }
- for(const original of l.ceil){
+ for(const original of allCeilings()){
  const c=ceilingShape(original);
- if(x+size-4>c[0]&&x+4<c[1]&&y<c[2]-28){die('天井にも、都合というものがあります。');return;}
+ if(x+size-4>c[0]&&x+4<c[1]&&y<c[2]-28){die(original[3]==='tunnel'?'押さなければ、何も起きなかったのに。':'天井にも、都合というものがあります。');return;}
  for(let sx=c[0];sx<c[1];sx+=24){
   if(original[3]==='tooth'&&sx===fallingTooth(original).x)continue;
   if(toothHits({x:sx,top:c[2]-28,height:28})){die('その高さ、さっきまでは安全でしたね。');return;}
@@ -130,7 +151,7 @@ function draw(){const l=levels[level],cam=Math.max(0,x-210);ctx.fillStyle='#eae8
  if(spike.moving){ctx.strokeStyle='#d8402e';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx+40,floor-8);ctx.lineTo(sx+65,floor-8);ctx.stroke();}
  ctx.fillStyle='#292c2a';ctx.beginPath();ctx.moveTo(sx,floor);ctx.lineTo(sx+17,floor-spike.height);ctx.lineTo(sx+34,floor);ctx.fill();
  }
- for(const original of l.ceil){
+ for(const original of allCeilings()){
  const c=ceilingShape(original);
  ctx.fillStyle='#30322e';ctx.fillRect(c[0],0,c[1]-c[0],c[2]-28);
  function drawTooth(t){ctx.beginPath();ctx.moveTo(t.x,t.top);ctx.lineTo(t.x+12,t.top+t.height);ctx.lineTo(t.x+24,t.top);ctx.fill();}
