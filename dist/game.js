@@ -24,18 +24,57 @@ function resize(){sceneHeight=levels[level].underground&&route!=='surface'?720:4
 window.addEventListener('resize',resize);resize();
 const floor=370, size=32;
 function load(){escapeTriggered=false;escapeAge=0;landingSpike=null;jumpBuffer=0;route='surface';resize();x=100;y=floor-size;vy=0;held=false;grounded=true;elapsed=0;particles=[];$('stage').textContent=String(level+1).padStart(2,'0')+' / '+String(levels.length).padStart(2,'0');$('name').textContent=levels[level].name;$('progress').style.width='0%';}
-function start(){if(state==='complete')level=0;load();state='playing';$('overlay').classList.add('hidden');}
+function start(){debugTapCount=0;$('debug-toggle').hidden=!debugEnabled;if(state==='complete')level=0;load();state='playing';$('overlay').classList.add('hidden');}
 function jump(){if(state!=='playing'||route==='entering')return;if(grounded){vy=-650;grounded=false;jumpBuffer=0;}else if(levels[level].escapeGoal?.landingTrap)jumpBuffer=.14;held=true;}
 function release(){held=false;if(vy< -270)vy=-270;}
 const taunts=["今のは、床のせい。","知っていれば、余裕。","もう一回だけ。","信じてしまいましたね。","あー、えーっと…きっと、お仕事はできるんですよね？","難易度下げますか？…あ、これ以上簡単なの無かったか","言い忘れてました！ジャンプボタンは鼻の穴の中じゃありません！え？知ってた？知っててそれ？","今のは練習ですよね？ずっと練習していますものね。","その判断力、ここでは使わない縛りですか？","惜しい！……と言う準備だけはしていました。","大丈夫です。トゲの方は無事でした。","今度こそ、と思いました？私も一瞬だけ。","押すボタンは一つなんですけどね。","落ち着いてください。落ちる方はもう十分です。","そこ、さっきも通りましたよね？初対面の反応でしたね。","操作は覚えましたね。判断はこれからですね。"];
 let lastTaunt=-1;
+let debugEnabled=false,debugTapCount=0,lastDebugTap=-Infinity,debugReturnState='ready';
 function randomTaunt(){if(lastTaunt<0){lastTaunt=Math.floor(Math.random()*taunts.length);return taunts[lastTaunt];}const pick=Math.floor(Math.random()*(taunts.length-1));lastTaunt=pick>=lastTaunt?pick+1:pick;return taunts[lastTaunt];}
 function die(reason){if(state!=='playing')return;state='dead';held=false;deaths++;deadTime=0;$('deaths').textContent=String(deaths).padStart(3,'0');$('eyebrow').textContent='YOU DIED · '+String(deaths).padStart(3,'0');$('title').textContent=randomTaunt();$('message').textContent=reason;$('action').innerHTML='もう一度 <span>↺</span>';for(let i=0;i<18;i++)particles.push({x:x+16,y:y+16,vx:Math.sin(i*7)*180,vy:Math.cos(i*3)*240,t:0});}
 function win(){state=level===levels.length-1?'complete':'cleared';held=false;$('eyebrow').textContent=state==='complete'?'HELL, CONQUERED.':'STAGE CLEAR';$('title').textContent=state==='complete'?'お見事。悪魔も降参です。':'まだ、終わりではありません。';$('message').textContent=state==='complete'?`全${levels.length}ステージを突破。死亡回数：${deaths}回`:'次のステージでは、別の罠が待っています。';$('action').innerHTML=state==='complete'?'最初から遊ぶ <span>↺</span>':'次のステージ <span>→</span>';$('overlay').classList.remove('hidden');}
 function act(){if(state==='cleared')level++;start();}
 $('action').addEventListener('click',act);$('restart').addEventListener('click',start);
+
+function openDebugSelect(){
+ if(!debugEnabled||state==='debug')return;
+ debugReturnState=state;state='debug';release();jumpBuffer=0;
+ const grid=$('debug-stages');
+ if(!grid.children.length){
+  levels.forEach((stage,index)=>{
+   const button=document.createElement('button');
+   button.type='button';button.textContent=String(index+1).padStart(2,'0');
+   button.setAttribute('aria-label',String(index+1)+'面：'+stage.name);
+   button.addEventListener('click',()=>{
+    level=index;state='ready';
+    $('debug-panel').hidden=true;$('overlay').classList.remove('debug-select');
+    start();canvas.focus();
+   });
+   grid.appendChild(button);
+  });
+ }
+ [...grid.children].forEach((button,index)=>button.setAttribute('aria-current',String(index===level)));
+ $('debug-panel').hidden=false;$('overlay').classList.add('debug-select');$('overlay').classList.remove('hidden');
+ $('debug-toggle').hidden=true;grid.children[level].focus();
+}
+function closeDebugSelect(){
+ if(state!=='debug')return;
+ state=debugReturnState;$('debug-panel').hidden=true;
+ $('overlay').classList.remove('debug-select');$('overlay').classList.toggle('hidden',state==='playing');
+ $('debug-toggle').hidden=false;if(state==='playing')canvas.focus();else $('action').focus();
+}
+$('overlay').addEventListener('click',e=>{
+ if(state!=='ready'||debugEnabled||e.button!==0||e.target.closest('button'))return;
+ const now=e.timeStamp;
+ debugTapCount=now-lastDebugTap<=2000?debugTapCount+1:1;
+ lastDebugTap=now;
+ if(debugTapCount===20){debugEnabled=true;$('debug-toggle').hidden=false;openDebugSelect();}
+});
+$('debug-toggle').addEventListener('click',openDebugSelect);
+$('debug-close').addEventListener('click',closeDebugSelect);
+
 canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.setPointerCapture(e.pointerId);jump();});canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);
-window.addEventListener('keydown',e=>{if(['Space','ArrowUp','KeyR'].includes(e.code)){if(e.target.tagName==='BUTTON'&&e.code==='Space')return;e.preventDefault();if(e.repeat)return;if(e.code==='KeyR'){start();return;}if(state==='playing')jump();else if(state!=='dead'||deadTime>.45)act();}});window.addEventListener('keyup',e=>{if(['Space','ArrowUp'].includes(e.code))release();});window.addEventListener('blur',release);document.addEventListener('visibilitychange',()=>{last=0;acc=0;release();});
+window.addEventListener('keydown',e=>{if(state==='debug'){if(e.code==='Escape'){e.preventDefault();closeDebugSelect();}return;}if(['Space','ArrowUp','KeyR'].includes(e.code)){if(e.target.tagName==='BUTTON'&&e.code==='Space')return;e.preventDefault();if(e.repeat)return;if(e.code==='KeyR'){start();return;}if(state==='playing')jump();else if(state!=='dead'||deadTime>.45)act();}});window.addEventListener('keyup',e=>{if(['Space','ArrowUp'].includes(e.code))release();});window.addEventListener('blur',release);document.addEventListener('visibilitychange',()=>{last=0;acc=0;release();});
 
 // Trap geometry is shared by physics and rendering; progress is deterministic.
 const clamp01=n=>Math.max(0,Math.min(1,n));
