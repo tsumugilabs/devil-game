@@ -203,12 +203,23 @@ function toothHits(t){
  return y<t.top+t.height*(1-Math.abs(near-t.x-12)/12);
 }
 
+function groundSegments(left,right){
+ const segments=[];let bank=left;
+ for(const h of allHoles().sort((a,b)=>a[0]-b[0])){
+  const edge=Math.min(h[0],right);if(edge>bank)segments.push([bank,edge]);
+  bank=Math.max(bank,h[1]);if(bank>=right)break;
+ }
+ if(bank<right)segments.push([bank,right]);return segments;
+}
 function spikeHits(spike,ground=floor){
  const left=Math.max(x+4,spike.x),right=Math.min(x+size-4,spike.x+34);
  if(spike.height<=0||left>=right)return false;
- const nearest=Math.max(left,Math.min(right,spike.x+17));
- const surface=ground-spike.height*(1-Math.abs(nearest-spike.x-17)/17);
- return y+size>surface&&y<ground;
+ const segments=ground===floor?groundSegments(left,right):[[left,right]];
+ return segments.some(([a,b])=>{
+  const nearest=Math.max(a,Math.min(b,spike.x+17));
+  const surface=ground-spike.height*(1-Math.abs(nearest-spike.x-17)/17);
+  return y+size>surface&&y<ground;
+ });
 }
 function update(dt){
  if(state==='dead'){
@@ -309,18 +320,9 @@ function draw(){const l=levels[level],cam=Math.max(0,x-210);ctx.fillStyle='#eae8
   if(trap.floorGrowth>0){ctx.beginPath();ctx.moveTo(u.spike,u.floor);ctx.lineTo(u.spike+17,u.floor-32*trap.floorGrowth);ctx.lineTo(u.spike+34,u.floor);ctx.fill();}
  }
 
- // Underground surface scenery is clipped to the visible banks, without changing active traps.
+ // Use the same exposed ground spans for rendering and surface spike collisions.
  ctx.save();
- if(below){
-  ctx.beginPath();let bank=cam;
-  for(const h of allHoles().sort((a,b)=>a[0]-b[0])){
-   const edge=Math.min(h[0],cam+viewWidth);
-   if(edge>bank)ctx.rect(bank,0,edge-bank,floor);
-   bank=Math.max(bank,h[1]);if(bank>=cam+viewWidth)break;
-  }
-  if(bank<cam+viewWidth)ctx.rect(bank,0,cam+viewWidth-bank,floor);
-  ctx.clip();
- }
+ ctx.beginPath();for(const [a,b] of groundSegments(cam,cam+viewWidth))ctx.rect(a,0,b-a,floor);ctx.clip();
  for(const spike of allSpikes()){if(spike.height<=0)continue;
  const sx=spike.x;
  if(spike.moving){ctx.strokeStyle='#d8402e';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx+40,floor-8);ctx.lineTo(sx+65,floor-8);ctx.stroke();}
