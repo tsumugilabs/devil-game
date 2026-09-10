@@ -309,16 +309,31 @@ function draw(){const l=levels[level],cam=Math.max(0,x-210);ctx.fillStyle='#eae8
   if(trap.floorGrowth>0){ctx.beginPath();ctx.moveTo(u.spike,u.floor);ctx.lineTo(u.spike+17,u.floor-32*trap.floorGrowth);ctx.lineTo(u.spike+34,u.floor);ctx.fill();}
  }
 
+ // Underground surface scenery is clipped to the visible banks, without changing active traps.
+ ctx.save();
+ if(below){
+  ctx.beginPath();let bank=cam;
+  for(const h of allHoles().sort((a,b)=>a[0]-b[0])){
+   const edge=Math.min(h[0],cam+viewWidth);
+   if(edge>bank)ctx.rect(bank,0,edge-bank,floor);
+   bank=Math.max(bank,h[1]);if(bank>=cam+viewWidth)break;
+  }
+  if(bank<cam+viewWidth)ctx.rect(bank,0,cam+viewWidth-bank,floor);
+  ctx.clip();
+ }
  for(const spike of allSpikes()){if(spike.height<=0)continue;
  const sx=spike.x;
  if(spike.moving){ctx.strokeStyle='#d8402e';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx+40,floor-8);ctx.lineTo(sx+65,floor-8);ctx.stroke();}
  ctx.fillStyle='#292c2a';ctx.beginPath();ctx.moveTo(sx,floor);ctx.lineTo(sx+17,floor-spike.height);ctx.lineTo(sx+34,floor);ctx.fill();
  }
+ ctx.restore();
  for(const original of allCeilings()){
  const c=ceilingShape(original);
  ctx.fillStyle='#30322e';ctx.fillRect(c[0],0,c[1]-c[0],c[2]-28);
  function drawTooth(t){ctx.beginPath();ctx.moveTo(t.x,t.top);ctx.lineTo(t.x+12,t.top+t.height);ctx.lineTo(t.x+24,t.top);ctx.fill();}
+ ctx.save();ctx.beginPath();ctx.rect(c[0],0,c[1]-c[0],c[2]);ctx.clip();
  for(let sx=c[0];sx<c[1];sx+=24){if(original[3]==='tooth'&&sx===fallingTooth(original).x)continue;drawTooth({x:sx,top:c[2]-28,height:28});}
+ ctx.restore();
  if(original[3]==='tooth'){const t=fallingTooth(original);ctx.fillStyle=t.warning?'#d8402e':'#30322e';drawTooth(t);}
  }
  function flag(px,fake,ground=floor){ctx.fillStyle='#d8402e';ctx.fillRect(px,ground-120,3,120);ctx.fillRect(px+3,ground-120,60,32);if(!fake)text('GOAL',px+10,ground-99,15,'#fff');}
