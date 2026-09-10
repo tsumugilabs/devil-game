@@ -15,7 +15,8 @@ const levels=[
 const cloneStage=i=>JSON.parse(JSON.stringify(levels[i]));
 levels.push({...cloneStage(0),name:'ゴールにも逃げる権利',length:2170,escapeGoal:{start:1930,end:2170,hole:[1882,2030],duration:.3}});
 levels.push({...cloneStage(1),name:'着地は終わりではありません',length:2470,escapeGoal:{start:2230,end:2470,hole:[2182,2330],duration:.3,landingTrap:true}});
-levels.push({...cloneStage(4),name:'落ちる勇気',length:5060,underground:{entry:[235,267],floor:618,roof:482,pitBottom:434,surfaceGoal:3030,spike:4920}});
+// Give the entrance a readable approach and a safe landing before the surface traps.
+levels.push({...cloneStage(4),name:'落ちる勇気',length:5060,spikes:levels[4].spikes.filter(p=>p!==540),hiddenSpikes:levels[4].hiddenSpikes.filter(p=>p!==540),underground:{entry:[500,532],floor:618,roof:482,pitBottom:434,surfaceGoal:3030,spike:4920}});
 
 let level=0,deaths=0,state='ready',x=100,y=338,vy=0,held=false,grounded=true,elapsed=0,deadTime=0,last=0,acc=0,particles=[];
 let viewWidth=1000, viewHeight=480,sceneHeight=480;
