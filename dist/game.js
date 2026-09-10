@@ -6,7 +6,7 @@ const levels=[
  {name:'高く跳べばいい、とは限らない',length:2200,speed:245,spikes:[640,1280,1640],hiddenSpikes:[1640],holes:[[860,1005,795],[1870,2010,1815]],ceil:[[570,760,180]],fake:1770},
  {name:'足元をご覧ください',length:2300,speed:255,spikes:[520,1770],hiddenSpikes:[520,1770],holes:[[710,850,645],[2010,2150,1955]],baitHoles:[[1120,1210,1290,1430]],spikeModes:{1770:'slide'},ceil:[[430,610,245,'drop']],fake:1900},
  {name:'ゴールはすぐそこ',length:2500,speed:250,spikes:[580,1160,1710,2280],hiddenSpikes:[1710,2280],holes:[[780,920,715],[1990,2140,1925]],spikeModes:{1710:'swap'},ceil:[[1085,1260,245,'drop'],[1420,1600,180,'tooth']],fake:1830},
- {name:'最後まで信用しないで',length:3000,speed:260,spikes:[540,1160,1770,2460,2880],hiddenSpikes:[540,1770,2460,2880],holes:[[740,885,675],[1980,2120,1915],[2660,2800,2605]],baitHoles:[[1380,1470,1550,1690]],spikeModes:{1770:'slide',2880:'swap'},ceil:[[1090,1250,245,'drop'],[2210,2340,180,'tooth'],[2390,2540,245,'drop']],fake:2240},
+ {name:'最後まで信用しないで',length:3000,speed:260,spikes:[540,1160,1770,2460,2880],hiddenSpikes:[540,1770,2460,2880],holes:[[740,885,675],[1980,2120,1915],[2660,2800,2605]],baitHoles:[[1380,1470,1550,1690]],spikeModes:{1770:'rise',2880:'swap'},ceil:[[1090,1250,245,'drop'],[2210,2340,180,'tooth'],[2390,2540,245,'drop']],fake:2240},
  {name:'その着地点、予約済みです',length:3300,speed:265,spikes:[520,1110,1740,2250,3040],hiddenSpikes:[520,1740,2250,3040],holes:[[740,885],[1920,2065],[2780,2920]],baitHoles:[[1340,1430,1510,1650]],spikeModes:{1740:'slide',2250:'swap',3040:'slide'},ceil:[[1040,1200,245,'drop'],[2420,2600,180,'tooth']],fake:2660},
  {name:'何もしない勇気',length:2720,speed:255,spikes:[],hiddenSpikes:[],holes:[[2510,2645]],ceil:[],tunnel:[300,2450],temptations:[{at:600,type:'hole'},{at:1000,type:'spike'},{at:1400,type:'hole'},{at:1800,type:'spike'},{at:2200,type:'hole'}],fake:2000},
  {name:'さっきの正解は、もう不正解',length:3800,speed:265,spikes:[1420,2020,2690,3570],hiddenSpikes:[1420,2690,3570],holes:[[1630,1775],[2920,3060]],baitHoles:[[2290,2380,2460,2600]],spikeModes:{2690:'slide',3570:'swap'},ceil:[[1960,2100,245,'drop'],[3180,3350,180,'tooth']],tunnel:[300,1280],temptations:[{at:600,type:'spike'},{at:1000,type:'hole'}],fake:3420}
@@ -174,6 +174,7 @@ function allSpikes(){
  return [...l.spikes.flatMap(base=>{
   const mode=(l.spikeModes||{})[base];
   if(!mode)return [spikeShape(base)];
+  if(mode==='rise')return [{x:base,height:32*clamp01((x-(base-200))/(l.speed*.5)),moving:false}];
   const initial=base-130, growth=clamp01((x-(initial-240))/100);
   if(mode==='slide'){
    const travel=clamp01((x-(initial-70))/100);
