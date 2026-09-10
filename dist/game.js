@@ -28,10 +28,41 @@ function load(){escapeTriggered=false;escapeAge=0;landingSpike=null;jumpBuffer=0
 function start(){debugTapCount=0;$('debug-toggle').hidden=!debugEnabled;if(state==='complete')level=0;load();state='playing';$('overlay').classList.add('hidden');}
 function jump(){if(state!=='playing'||route==='entering')return;if(grounded){vy=-650;grounded=false;jumpBuffer=0;}else if(levels[level].escapeGoal?.landingTrap)jumpBuffer=.14;held=true;}
 function release(){held=false;if(vy< -270)vy=-270;}
-const taunts=["今のは、床のせい。","知っていれば、余裕。","もう一回だけ。","信じてしまいましたね。","あー、えーっと…きっと、お仕事はできるんですよね？","難易度下げますか？…あ、これ以上簡単なの無かったか","言い忘れてました！ジャンプボタンは鼻の穴の中じゃありません！え？知ってた？知っててそれ？","今のは練習ですよね？ずっと練習していますものね。","その判断力、ここでは使わない縛りですか？","惜しい！……と言う準備だけはしていました。","大丈夫です。トゲの方は無事でした。","今度こそ、と思いました？私も一瞬だけ。","押すボタンは一つなんですけどね。","落ち着いてください。落ちる方はもう十分です。","そこ、さっきも通りましたよね？初対面の反応でしたね。","操作は覚えましたね。判断はこれからですね。"];
+let taunts=["今のは、床のせい。","知っていれば、余裕。","もう一回だけ。","信じてしまいましたね。","あー、えーっと…きっと、お仕事はできるんですよね？","難易度下げますか？…あ、これ以上簡単なの無かったか","言い忘れてました！ジャンプボタンは鼻の穴の中じゃありません！え？知ってた？知っててそれ？","今のは練習ですよね？ずっと練習していますものね。","その判断力、ここでは使わない縛りですか？","惜しい！……と言う準備だけはしていました。","大丈夫です。トゲの方は無事でした。","今度こそ、と思いました？私も一瞬だけ。","押すボタンは一つなんですけどね。","落ち着いてください。落ちる方はもう十分です。","そこ、さっきも通りましたよね？初対面の反応でしたね。","操作は覚えましたね。判断はこれからですね。"];
+const defaultReasons={
+  "着地で岸に届かない": "届きそうでしたね。届いてはいませんが。",
+  "地下道で高くジャンプ": "ここまで来て、大きく跳びましたね。",
+  "地下道の最後の地面トゲ": "最後の最後まで、油断なさいませんように。",
+  "地下道以外の穴へ落下": "地下への入口は、そこではありませんでした。",
+  "逃げるゴールの穴": "ゴールが待っているなんて、誰が言いました？",
+  "偽ゴールの先で落下": "ゴールだと、思いました？",
+  "通常の穴へ落下": "着地点に床があるとは、言っていません。",
+  "着地直後のトゲ": "着地、おめでとうございます。次のジャンプは？",
+  "動くトゲ": "待ってくれるトゲだと、思いました？",
+  "通常のトゲ": "生えてくるところ、見えていましたよね。",
+  "低い天井でジャンプ": "押さなければ、何も起きなかったのに。",
+  "天井に衝突": "天井にも、都合というものがあります。",
+  "天井のトゲ": "その高さ、さっきまでは安全でしたね。",
+  "天井から落ちる一本": "全部落ちるとは、言っていません。一つで十分です。"
+};
+let reasons={...defaultReasons};
+function applyTauntConfig(config){
+ const validText=value=>typeof value==='string'&&value.trim().length>0;
+ if(!config||!Array.isArray(config['ランダム'])||!config['ランダム'].length||!config['ランダム'].every(validText)||
+ !config['罠専用']||!Object.keys(defaultReasons).every(key=>validText(config['罠専用'][key])))throw Error('煽り文句の形式が正しくありません');
+ taunts=[...config['ランダム']];reasons={...config['罠専用']};lastTaunt=-1;
+}
+async function loadTauntConfig(){
+ if(typeof fetch!=='function')return;
+ try{
+  const response=await fetch('./taunts.json',{cache:'no-store'});
+  if(!response.ok)throw Error('煽り文句を読み込めませんでした');
+  applyTauntConfig(await response.json());
+ }catch(error){console.warn('初期の煽り文句で続行します。',error);}
+}
 let lastTaunt=-1;
 let debugEnabled=false,debugTapCount=0,lastDebugTap=-Infinity,debugReturnState='ready';
-function randomTaunt(){if(lastTaunt<0){lastTaunt=Math.floor(Math.random()*taunts.length);return taunts[lastTaunt];}const pick=Math.floor(Math.random()*(taunts.length-1));lastTaunt=pick>=lastTaunt?pick+1:pick;return taunts[lastTaunt];}
+function randomTaunt(){if(taunts.length===1)return taunts[0];if(lastTaunt<0){lastTaunt=Math.floor(Math.random()*taunts.length);return taunts[lastTaunt];}const pick=Math.floor(Math.random()*(taunts.length-1));lastTaunt=pick>=lastTaunt?pick+1:pick;return taunts[lastTaunt];}
 function die(reason){if(state!=='playing')return;state='dead';held=false;deaths++;deadTime=0;$('deaths').textContent=String(deaths).padStart(3,'0');$('eyebrow').textContent='YOU DIED · '+String(deaths).padStart(3,'0');$('title').textContent=randomTaunt();$('message').textContent=reason;$('action').innerHTML='もう一度 <span>↺</span>';for(let i=0;i<18;i++)particles.push({x:x+16,y:y+16,vx:Math.sin(i*7)*180,vy:Math.cos(i*3)*240,t:0});}
 function win(){state=level===levels.length-1?'complete':'cleared';held=false;$('eyebrow').textContent=state==='complete'?'HELL, CONQUERED.':'STAGE CLEAR';$('title').textContent=state==='complete'?'お見事。悪魔も降参です。':'まだ、終わりではありません。';$('message').textContent=state==='complete'?`全${levels.length}ステージを突破。死亡回数：${deaths}回`:'次のステージでは、別の罠が待っています。';$('action').innerHTML=state==='complete'?'最初から遊ぶ <span>↺</span>':'次のステージ <span>→</span>';$('overlay').classList.remove('hidden');}
 function act(){if(state==='cleared')level++;start();}
@@ -215,7 +246,7 @@ function update(dt){
   if(jumpBuffer>0){vy=held?-650:-450;grounded=false;jumpBuffer=0;}
  }else grounded=false;
  if(!below&&y+size>floor+8&&y<floor&&openHoles.some(h=>previousX+size<=h[1]&&x+size>h[1])){
-  die('届きそうでしたね。届いてはいませんが。');return;
+  die(reasons['着地で岸に届かない']);return;
  }
  if(below){
   // The empty tunnel has a solid, harmless roof. Only the last emerging teeth are lethal.
@@ -223,30 +254,30 @@ function update(dt){
   if(route==='underground'&&trap.ceilingGrowth>0){
    const growth=trap.ceilingGrowth;
    for(let px=u.spike-90;px<u.spike+95;px+=24){
-    if(toothHits({x:px,top:u.roof,height:30*growth})){die('ここまで来て、大きく跳びましたね。');return;}
+    if(toothHits({x:px,top:u.roof,height:30*growth})){die(reasons['地下道で高くジャンプ']);return;}
    }
   }
   if(route==='underground'&&y<u.roof){y=u.roof;vy=Math.max(0,vy);}
-  if(trap.floorGrowth>0&&spikeHits({x:u.spike,height:32*trap.floorGrowth},u.floor)){die('最後の最後まで、油断なさいませんように。');return;}
+  if(trap.floorGrowth>0&&spikeHits({x:u.spike,height:32*trap.floorGrowth},u.floor)){die(reasons['地下道の最後の地面トゲ']);return;}
  }else{
   if(u){
    // Other surface pits end two tiles down in a spike bed; they never connect to the safe tunnel.
    for(const h of openHoles){if(h===u.entry)continue;
-    if(x+size-4>h[0]&&x+4<h[1]&&y+size>u.pitBottom-24){die('地下への入口は、そこではありませんでした。');return;}
+    if(x+size-4>h[0]&&x+4<h[1]&&y+size>u.pitBottom-24){die(reasons['地下道以外の穴へ落下']);return;}
    }
   }
-  if(y>490){die(escapeTriggered?'ゴールが待っているなんて、誰が言いました？':l.fake&&x>l.fake?'ゴールだと、思いました？':'着地点に床があるとは、言っていません。');return;}
+  if(y>490){die(escapeTriggered?reasons['逃げるゴールの穴']:l.fake&&x>l.fake?reasons['偽ゴールの先で落下']:reasons['通常の穴へ落下']);return;}
   for(const spike of allSpikes()){
-   if(spikeHits(spike)){die(landingSpike===spike?'着地、おめでとうございます。次のジャンプは？':level>=2?'待ってくれるトゲだと、思いました？':'生えてくるところ、見えていましたよね。');return;}
+   if(spikeHits(spike)){die(landingSpike===spike?reasons['着地直後のトゲ']:level>=2?reasons['動くトゲ']:reasons['通常のトゲ']);return;}
   }
   for(const original of allCeilings()){
    const c=ceilingShape(original);
-   if(x+size-4>c[0]&&x+4<c[1]&&y<c[2]-28){die(original[3]==='tunnel'?'押さなければ、何も起きなかったのに。':'天井にも、都合というものがあります。');return;}
+   if(x+size-4>c[0]&&x+4<c[1]&&y<c[2]-28){die(original[3]==='tunnel'?reasons['低い天井でジャンプ']:reasons['天井に衝突']);return;}
    for(let sx=c[0];sx<c[1];sx+=24){
     if(original[3]==='tooth'&&sx===fallingTooth(original).x)continue;
-    if(toothHits({x:sx,top:c[2]-28,height:28})){die('その高さ、さっきまでは安全でしたね。');return;}
+    if(toothHits({x:sx,top:c[2]-28,height:28})){die(reasons['天井のトゲ']);return;}
    }
-   if(original[3]==='tooth'&&toothHits(fallingTooth(original))){die('全部落ちるとは、言っていません。一つで十分です。');return;}
+   if(original[3]==='tooth'&&toothHits(fallingTooth(original))){die(reasons['天井から落ちる一本']);return;}
   }
  }
  const atGoal=l.escapeGoal?escapeTriggered&&escapeAge>=l.escapeGoal.duration&&x+size>=l.escapeGoal.end&&grounded:x>=l.length;
@@ -296,4 +327,4 @@ function draw(){const l=levels[level],cam=Math.max(0,x-210);ctx.fillStyle='#eae8
  else flag(goalPosition(),false);
 
  if(state!=='dead'){ctx.fillStyle='#d8402e';ctx.fillRect(x,y,size,size);ctx.fillRect(x+3,y-7,6,9);ctx.fillRect(x+23,y-7,6,9);ctx.fillStyle='#fff';ctx.fillRect(x+17,y+8,5,6);ctx.fillRect(x+26,y+8,5,6);ctx.fillStyle='#292c2a';ctx.fillRect(x+21,y+23,9,3);if(grounded){const step=Math.sin(elapsed*25)*3;ctx.fillStyle='#d8402e';ctx.fillRect(x+3,y+size,8,step+4);ctx.fillRect(x+21,y+size,8,4-step);}}else{ctx.fillStyle='#d8402e';for(const p of particles)ctx.fillRect(p.x,p.y,7,7);}ctx.restore();ctx.restore();}
-function frame(t){if(!last)last=t;acc+=Math.min((t-last)/1000,.05);last=t;while(acc>=1/120){update(1/120);acc-=1/120;}draw();requestAnimationFrame(frame);}load();requestAnimationFrame(frame);
+function frame(t){if(!last)last=t;acc+=Math.min((t-last)/1000,.05);last=t;while(acc>=1/120){update(1/120);acc-=1/120;}draw();requestAnimationFrame(frame);}load();loadTauntConfig();requestAnimationFrame(frame);
