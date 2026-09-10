@@ -27,5 +27,21 @@ for(const bad of [{...config,'ランダム':[]},{...config,'ランダム':['']},
  }
  context.fetch=async()=>{throw Error('offline');};await run('loadTauntConfig()');
  run('applyTauntConfig('+JSON.stringify({'ランダム':initial.random,'罠専用':initial.reasons})+')');let last;for(let i=0;i<100;i++){const next=run('randomTaunt()');assert.notStrictEqual(next,last);last=next;}
+
+ const clearConfig={...config,'クリア時':{'各面クリア':{'見出し':'{ステージ}面クリア <b>文字</b>','本文':'死亡{死亡回数}回／全{総ステージ数}面'},'全ステージクリア':{'見出し':'全{総ステージ数}面終了','本文':'{死亡回数}回でした'}}};
+ validate(clearConfig);
+ run("state='ready';level=4;deaths=23;");
+ run('applyTauntConfig('+JSON.stringify(clearConfig)+')');run('win()');
+ assert.equal(elements.title.textContent,'5面クリア <b>文字</b>');assert.equal(elements.message.textContent,'死亡23回／全11面');
+ run('act()');assert.equal(run('level'),5);assert.equal(run('state'),'playing');
+ run('level=10;win()');assert.equal(elements.title.textContent,'全11面終了');assert.equal(elements.message.textContent,'23回でした');
+ const changed=JSON.parse(JSON.stringify(clearConfig));changed['クリア時']['全ステージクリア']['本文']='更新後{死亡回数}回';
+ run('applyTauntConfig('+JSON.stringify(changed)+')');assert.equal(elements.message.textContent,'更新後23回');
+ run('act()');assert.equal(run('level'),0);
+ const invalid={...clearConfig,'クリア時':{'各面クリア':{}}};
+ assert.throws(()=>validate(invalid));assert.throws(()=>run('applyTauntConfig('+JSON.stringify(invalid)+')'));
+ const legacy={...config};delete legacy['クリア時'];run('applyTauntConfig('+JSON.stringify(legacy)+')');run('level=10;win()');assert.equal(elements.title.textContent,'お見事。悪魔も降参です。');
+
+ console.log('Editable clear messages and placeholders passed');
  console.log('Config fetch, edited death text, one-item list, invalid/offline fallback and repeat avoidance passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
