@@ -132,7 +132,7 @@ function surfaceTail(){
  return positions.map(px=>({x:px,height:32,moving:false}));
 }
 function goalPosition(){const g=levels[level].escapeGoal;return g?g.start+(g.end-g.start)*clamp01(escapeAge/g.duration):levels[level].length+30;}
-function undergroundTrap(){const u=levels[level].underground;return {floorVisible:!!u&&x>=u.spike-40,ceilingGrowth:u?clamp01((x-u.spike)/20):0};}
+function undergroundTrap(){const u=levels[level].underground;return {floorVisible:!!u&&x+size>=u.spike-size*2.5,ceilingGrowth:u?clamp01((x-u.spike)/20):0};}
 
 function allSpikes(){
  const l=levels[level];
