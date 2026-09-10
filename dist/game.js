@@ -46,11 +46,26 @@ const defaultReasons={
   "天井から落ちる一本": "全部落ちるとは、言っていません。一つで十分です。"
 };
 let reasons={...defaultReasons};
+const defaultClearMessages={
+  "各面クリア": {
+    "見出し": "まだ、終わりではありません。",
+    "本文": "次のステージでは、別の罠が待っています。"
+  },
+  "全ステージクリア": {
+    "見出し": "お見事。悪魔も降参です。",
+    "本文": "全{総ステージ数}ステージを突破。死亡回数：{死亡回数}回"
+  }
+};
+let clearMessages=defaultClearMessages;
+function formatClearMessage(message){return message.replace(/\{(死亡回数|総ステージ数|ステージ)\}/g,(_,key)=>String({'死亡回数':deaths,'総ステージ数':levels.length,'ステージ':level+1}[key]));}
 function applyTauntConfig(config){
  const validText=value=>typeof value==='string'&&value.trim().length>0;
  if(!config||!Array.isArray(config['ランダム'])||!config['ランダム'].length||!config['ランダム'].every(validText)||
  !config['罠専用']||!Object.keys(defaultReasons).every(key=>validText(config['罠専用'][key])))throw Error('煽り文句の形式が正しくありません');
- taunts=[...config['ランダム']];reasons={...config['罠専用']};lastTaunt=-1;
+ const clear=config['クリア時'];
+ if(clear!==undefined&&(!clear||!Object.keys(defaultClearMessages).every(key=>clear[key]&&['見出し','本文'].every(field=>validText(clear[key][field])))))throw Error('クリア時の見出しと本文を確認してください');
+ taunts=[...config['ランダム']];reasons={...config['罠専用']};clearMessages=clear?JSON.parse(JSON.stringify(clear)):defaultClearMessages;lastTaunt=-1;
+ if(state==='cleared'||state==='complete')win();
 }
 async function loadTauntConfig(){
  if(typeof fetch!=='function')return;
@@ -64,7 +79,7 @@ let lastTaunt=-1;
 let debugEnabled=false,debugTapCount=0,lastDebugTap=-Infinity,debugReturnState='ready';
 function randomTaunt(){if(taunts.length===1)return taunts[0];if(lastTaunt<0){lastTaunt=Math.floor(Math.random()*taunts.length);return taunts[lastTaunt];}const pick=Math.floor(Math.random()*(taunts.length-1));lastTaunt=pick>=lastTaunt?pick+1:pick;return taunts[lastTaunt];}
 function die(reason){if(state!=='playing')return;state='dead';held=false;deaths++;deadTime=0;$('deaths').textContent=String(deaths).padStart(3,'0');$('eyebrow').textContent='YOU DIED · '+String(deaths).padStart(3,'0');$('title').textContent=randomTaunt();$('message').textContent=reason;$('action').innerHTML='もう一度 <span>↺</span>';for(let i=0;i<18;i++)particles.push({x:x+16,y:y+16,vx:Math.sin(i*7)*180,vy:Math.cos(i*3)*240,t:0});}
-function win(){state=level===levels.length-1?'complete':'cleared';held=false;$('eyebrow').textContent=state==='complete'?'HELL, CONQUERED.':'STAGE CLEAR';$('title').textContent=state==='complete'?'お見事。悪魔も降参です。':'まだ、終わりではありません。';$('message').textContent=state==='complete'?`全${levels.length}ステージを突破。死亡回数：${deaths}回`:'次のステージでは、別の罠が待っています。';$('action').innerHTML=state==='complete'?'最初から遊ぶ <span>↺</span>':'次のステージ <span>→</span>';$('overlay').classList.remove('hidden');}
+function win(){state=level===levels.length-1?'complete':'cleared';held=false;const copy=clearMessages[state==='complete'?'全ステージクリア':'各面クリア'];$('eyebrow').textContent=state==='complete'?'HELL, CONQUERED.':'STAGE CLEAR';$('title').textContent=formatClearMessage(copy['見出し']);$('message').textContent=formatClearMessage(copy['本文']);$('action').innerHTML=state==='complete'?'最初から遊ぶ <span>↺</span>':'次のステージ <span>→</span>';$('overlay').classList.remove('hidden');}
 function act(){if(state==='cleared')level++;start();}
 $('action').addEventListener('click',act);$('restart').addEventListener('click',start);
 
