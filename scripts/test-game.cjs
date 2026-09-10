@@ -48,7 +48,13 @@ console.log('All special trap, route, viewport and restart checks pass');
 run(`level=0;start();x=935;y=337;vy=200;grounded=false;update(1/120);if(!grounded||y!==338)throw Error('Leading edge landing');start();x=870;y=338;vy=0;grounded=false;update(1/120);if(grounded)throw Error('Solid hole');start();x=932;y=360;vy=200;grounded=false;update(1/120);if(state!=='dead')throw Error('Bank side collision');`);
 const buffered=run(`(()=>{level=9;start();escapeTriggered=true;escapeAge=.3;x=2340;y=337;vy=200;grounded=false;jump();update(1/120);return {state,buffer:jumpBuffer,vy,grounded,spike:landingSpike};})()`);console.log('Landing input buffer',buffered);assert(buffered.spike&&!buffered.grounded&&buffered.vy<0);
 // The safe entrance is bypassable by a normal jump, with no forced route switch in mid-air.
-const entryJump=run(`(()=>{level=10;start();while(x<195)update(1/120);jump();for(let i=0;i<85&&state==='playing';i++)update(1/120);return {state,route,x};})()`);assert.strictEqual(entryJump.route,'surface');assert.strictEqual(entryJump.state,'playing');
+run(`state='ready';level=10;start();if((levels[10].underground.entry[0]-size/2-x)/levels[10].speed<1.4)throw Error('Entrance approach too short');for(let i=0;i<168;i++)update(1/120);if(route!=='surface'||state!=='playing')throw Error('Unsafe opening runway');if(!levels[4].spikes.includes(540))throw Error('Stage five changed');`);
+for(const lead of [35,55,75]){
+ for(const holdTicks of [5,100]){
+  const entryJump=run(`(()=>{state='ready';level=10;start();while(x<levels[10].underground.entry[0]-${lead})update(1/120);jump();for(let i=0;i<110&&state==='playing';i++){if(i===${holdTicks})release();update(1/120);}return {state,route,x,grounded};})()`);
+  assert.strictEqual(entryJump.route,'surface');assert.strictEqual(entryJump.state,'playing');assert(entryJump.grounded);
+ }
+}
 run(`level=10;start();x=5200;y=floor-size;route='surface';update(1/120);if(state!=='playing')throw Error('Surface completion');`);
 console.log('Landing regression, buffered jump, entrance bypass and route gate passed');
 
