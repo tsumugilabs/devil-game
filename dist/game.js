@@ -132,6 +132,7 @@ function surfaceTail(){
  return positions.map(px=>({x:px,height:32,moving:false}));
 }
 function goalPosition(){const g=levels[level].escapeGoal;return g?g.start+(g.end-g.start)*clamp01(escapeAge/g.duration):levels[level].length+30;}
+function undergroundTrap(){const u=levels[level].underground;return {floorVisible:!!u&&x>=u.spike-40,ceilingGrowth:u?clamp01((x-u.spike)/20):0};}
 
 function allSpikes(){
  const l=levels[level];
@@ -214,14 +215,15 @@ function update(dt){
  }
  if(below){
   // The empty tunnel has a solid, harmless roof. Only the last emerging teeth are lethal.
-  if(route==='underground'&&x>=u.spike-110){
-   const growth=clamp01((x-(u.spike-110))/35);
+  const trap=undergroundTrap();
+  if(route==='underground'&&trap.ceilingGrowth>0){
+   const growth=trap.ceilingGrowth;
    for(let px=u.spike-90;px<u.spike+95;px+=24){
     if(toothHits({x:px,top:u.roof,height:30*growth})){die('ここまで来て、大きく跳びましたね。');return;}
    }
   }
   if(route==='underground'&&y<u.roof){y=u.roof;vy=Math.max(0,vy);}
-  if(x>=u.spike-40&&spikeHits({x:u.spike,height:32},u.floor)){die('最後の最後まで、油断なさいませんように。');return;}
+  if(trap.floorVisible&&spikeHits({x:u.spike,height:32},u.floor)){die('最後の最後まで、油断なさいませんように。');return;}
  }else{
   if(u){
    // Other surface pits end two tiles down in a spike bed; they never connect to the safe tunnel.
@@ -266,10 +268,10 @@ function draw(){const l=levels[level],cam=Math.max(0,x-210);ctx.fillStyle='#eae8
    for(let px=h[0];px<h[1];px+=18){ctx.beginPath();ctx.moveTo(px,u.pitBottom);ctx.lineTo(px+9,u.pitBottom-24);ctx.lineTo(px+18,u.pitBottom);ctx.fill();}ctx.restore();
   }
  }
- if(below&&x>=u.spike-110){
-  const growth=clamp01((x-(u.spike-110))/35);ctx.fillStyle='#292c2a';
+ if(below){
+  const trap=undergroundTrap(),growth=trap.ceilingGrowth;ctx.fillStyle='#292c2a';
   for(let px=u.spike-90;px<u.spike+95;px+=24){ctx.beginPath();ctx.moveTo(px,u.roof);ctx.lineTo(px+12,u.roof+30*growth);ctx.lineTo(px+24,u.roof);ctx.fill();}
-  if(x>=u.spike-40){ctx.beginPath();ctx.moveTo(u.spike,u.floor);ctx.lineTo(u.spike+17,u.floor-32);ctx.lineTo(u.spike+34,u.floor);ctx.fill();}
+  if(trap.floorVisible){ctx.beginPath();ctx.moveTo(u.spike,u.floor);ctx.lineTo(u.spike+17,u.floor-32);ctx.lineTo(u.spike+34,u.floor);ctx.fill();}
  }
 
  for(const spike of allSpikes()){if(spike.height<=0)continue;
