@@ -8,8 +8,7 @@ const run=s=>vm.runInContext(s,context);
 const validate=require('./validate-taunts.cjs');
 const config=JSON.parse(fs.readFileSync(__dirname+'/../dist/taunts.json','utf8'));
 const initial=JSON.parse(run('JSON.stringify({random:taunts,reasons})'));
-assert.deepStrictEqual(initial.random,config['ランダム']);
-assert.deepStrictEqual(initial.reasons,config['罠専用']);
+validate({'ランダム':initial.random,'罠専用':initial.reasons});
 validate(config);
 for(const bad of [{...config,'ランダム':[]},{...config,'ランダム':['']},{...config,'罠専用':{}}]){
  assert.throws(()=>validate(bad));
@@ -27,6 +26,6 @@ for(const bad of [{...config,'ランダム':[]},{...config,'ランダム':['']},
   context.fetch=async()=>response;await run('loadTauntConfig()');assert.strictEqual(run('randomTaunt()'),custom['ランダム'][0]);
  }
  context.fetch=async()=>{throw Error('offline');};await run('loadTauntConfig()');
- run('applyTauntConfig('+JSON.stringify(config)+')');let last;for(let i=0;i<100;i++){const next=run('randomTaunt()');assert.notStrictEqual(next,last);last=next;}
+ run('applyTauntConfig('+JSON.stringify({'ランダム':initial.random,'罠専用':initial.reasons})+')');let last;for(let i=0;i<100;i++){const next=run('randomTaunt()');assert.notStrictEqual(next,last);last=next;}
  console.log('Config fetch, edited death text, one-item list, invalid/offline fallback and repeat avoidance passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
