@@ -132,7 +132,11 @@ function surfaceTail(){
  return positions.map(px=>({x:px,height:32,moving:false}));
 }
 function goalPosition(){const g=levels[level].escapeGoal;return g?g.start+(g.end-g.start)*clamp01(escapeAge/g.duration):levels[level].length+30;}
-function undergroundTrap(){const u=levels[level].underground;return {floorVisible:!!u&&x+size>=u.spike-size*2.5,ceilingGrowth:u?clamp01((x-u.spike)/20):0};}
+function undergroundTrap(){
+ const l=levels[level],u=l.underground;
+ const progress=u?clamp01((x+size-(u.spike-size*5))/(l.speed*.3)):0;
+ return {floorGrowth:progress*progress*(3-2*progress),ceilingGrowth:u?clamp01((x-u.spike)/20):0};
+}
 
 function allSpikes(){
  const l=levels[level];
@@ -223,7 +227,7 @@ function update(dt){
    }
   }
   if(route==='underground'&&y<u.roof){y=u.roof;vy=Math.max(0,vy);}
-  if(trap.floorVisible&&spikeHits({x:u.spike,height:32},u.floor)){die('最後の最後まで、油断なさいませんように。');return;}
+  if(trap.floorGrowth>0&&spikeHits({x:u.spike,height:32*trap.floorGrowth},u.floor)){die('最後の最後まで、油断なさいませんように。');return;}
  }else{
   if(u){
    // Other surface pits end two tiles down in a spike bed; they never connect to the safe tunnel.
@@ -271,7 +275,7 @@ function draw(){const l=levels[level],cam=Math.max(0,x-210);ctx.fillStyle='#eae8
  if(below){
   const trap=undergroundTrap(),growth=trap.ceilingGrowth;ctx.fillStyle='#292c2a';
   for(let px=u.spike-90;px<u.spike+95;px+=24){ctx.beginPath();ctx.moveTo(px,u.roof);ctx.lineTo(px+12,u.roof+30*growth);ctx.lineTo(px+24,u.roof);ctx.fill();}
-  if(trap.floorVisible){ctx.beginPath();ctx.moveTo(u.spike,u.floor);ctx.lineTo(u.spike+17,u.floor-32);ctx.lineTo(u.spike+34,u.floor);ctx.fill();}
+  if(trap.floorGrowth>0){ctx.beginPath();ctx.moveTo(u.spike,u.floor);ctx.lineTo(u.spike+17,u.floor-32*trap.floorGrowth);ctx.lineTo(u.spike+34,u.floor);ctx.fill();}
  }
 
  for(const spike of allSpikes()){if(spike.height<=0)continue;
