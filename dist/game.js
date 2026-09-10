@@ -134,7 +134,7 @@ function surfaceTail(){
 function goalPosition(){const g=levels[level].escapeGoal;return g?g.start+(g.end-g.start)*clamp01(escapeAge/g.duration):levels[level].length+30;}
 function undergroundTrap(){
  const l=levels[level],u=l.underground;
- const progress=u?clamp01((x+size-(u.spike-size*5))/(l.speed*.3)):0;
+ const progress=u?clamp01((x+size-(u.spike-size*3))/(l.speed*.3)):0;
  return {floorGrowth:progress*progress*(3-2*progress),ceilingGrowth:u?clamp01((x-u.spike)/20):0};
 }
 
