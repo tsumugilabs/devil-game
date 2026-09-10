@@ -4,7 +4,7 @@ const graphics=new Proxy({},{get:(o,k)=>o[k]||(()=>{}),set:(o,k,v)=>(o[k]=v,true
 const context={document:{querySelector:()=>({getContext:()=>graphics,addEventListener(){}}),getElementById:id=>elements[id]??=element(),addEventListener(){}},window:{innerWidth:390,innerHeight:844,devicePixelRatio:2,addEventListener(){}},requestAnimationFrame(){},Math,Set,console};
 vm.createContext(context);vm.runInContext(fs.readFileSync(__dirname+'/../dist/game.js','utf8'),context);
 const run=s=>vm.runInContext(s,context);
-run(`state='ready';level=10;start();for(const [offset,ground,ceiling] of [[-41,false,0],[-40,true,0],[-1,true,0],[10,true,.5],[20,true,1]]){x=levels[level].underground.spike+offset;const trap=undergroundTrap();if(trap.floorVisible!==ground||trap.ceilingGrowth!==ceiling)throw Error('Underground trap emergence order');}start();if(undergroundTrap().floorVisible||undergroundTrap().ceilingGrowth)throw Error('Trap reset');`);
+run(`state='ready';level=10;start();for(const [offset,ground,ceiling] of [[-113,false,0],[-112,true,0],[-40,true,0],[-1,true,0],[10,true,.5],[20,true,1]]){x=levels[level].underground.spike+offset;const trap=undergroundTrap();if(trap.floorVisible!==ground||trap.ceilingGrowth!==ceiling)throw Error('Underground trap emergence order');}x=levels[level].underground.spike-size*3.5;if(!undergroundTrap().floorVisible||(levels[level].underground.spike-x-size)/size!==2.5)throw Error('Floor spike must appear 2.5 tiles ahead of player front');start();if(undergroundTrap().floorVisible||undergroundTrap().ceilingGrowth)throw Error('Trap reset');`);
 run(`function solve(n,lead=35,secondJump=true){
  level=n;start();let jumpAt=-1,landingAt=null;
  for(let tick=0;tick<10000&&state==='playing';tick++){
