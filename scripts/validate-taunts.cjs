@@ -5,7 +5,8 @@ function validate(config){
  if(!config||!Array.isArray(config['ランダム'])||!config['ランダム'].length||!config['ランダム'].every(text))throw Error('ランダムには空でない文章を1件以上入れてください。');
  if(!config['罠専用']||!requiredKeys.every(key=>text(config['罠専用'][key])))throw Error('罠専用の項目名は残し、右側に空でない文章を入れてください。');
  const clear=config['クリア時'];
- if(clear!==undefined&&(!clear||!['各面クリア','全ステージクリア'].every(key=>clear[key]&&['見出し','本文'].every(field=>text(clear[key][field])))))throw Error('クリア時は各面クリア・全ステージクリアの見出しと本文を残してください。');
+ const clearKeys=clear&&Object.prototype.hasOwnProperty.call(clear,'各面クリア')?['各面クリア','全ステージクリア']:Array.from({length:11},(_,i)=>(i+1)+'面');
+ if(clear!==undefined&&(!clear||!clearKeys.every(key=>clear[key]&&['見出し','本文'].every(field=>text(clear[key][field])))))throw Error('クリア時は1面〜11面の見出しと本文を残してください。');
  return config;
 }
 if(require.main===module){
