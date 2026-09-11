@@ -42,6 +42,19 @@ for(const bad of [{...config,'ランダム':[]},{...config,'ランダム':['']},
  assert.throws(()=>validate(invalid));assert.throws(()=>run('applyTauntConfig('+JSON.stringify(invalid)+')'));
  const legacy={...config};delete legacy['クリア時'];run('applyTauntConfig('+JSON.stringify(legacy)+')');run('level=10;win()');assert.equal(elements.title.textContent,'お見事。悪魔も降参です。');
 
+
+ const perStage={...config,'クリア時':Object.fromEntries(Array.from({length:11},(_,i)=>[(i+1)+'面',{'見出し':(i+1)+'面だけの見出し','本文':'{ステージ}/{総ステージ数} 死亡{死亡回数}回'}]))};
+ validate(perStage);run("state='ready';deaths=7;");run('applyTauntConfig('+JSON.stringify(perStage)+')');
+ for(let i=0;i<11;i++){
+  run('state="ready";level='+i+';start();win();');
+  assert.equal(elements.title.textContent,(i+1)+'面だけの見出し');assert.equal(elements.message.textContent,(i+1)+'/11 死亡7回');
+  assert.equal(run('state'),i===10?'complete':'cleared');
+  run('act()');assert.equal(run('level'),i===10?0:i+1);
+ }
+ for(const bad of [null,{}, {...perStage['クリア時'],'5面':{'見出し':'','本文':'本文'}},Object.fromEntries(Object.entries(perStage['クリア時']).filter(([key])=>key!=='11面'))]){
+  const invalid={...perStage,'クリア時':bad};assert.throws(()=>validate(invalid));assert.throws(()=>run('applyTauntConfig('+JSON.stringify(invalid)+')'));
+ }
+ console.log('All 11 stage-specific messages, placeholders, progression and invalid edits passed');
  console.log('Editable clear messages and placeholders passed');
  console.log('Config fetch, edited death text, one-item list, invalid/offline fallback and repeat avoidance passed');
 })().catch(error=>{console.error(error);process.exitCode=1;});
